@@ -1,4 +1,4 @@
-Cuewand 2.3 - run your slides from your phone
+Cuewand 2.4 - run your slides from your phone
 =============================================
 
 Your phone becomes the remote for PowerPoint: Next and Back, your speaker
@@ -456,7 +456,7 @@ Not tried at all:
   now records what is needed to find out why
 - PowerPoint's Presenter View, two screens, a deck on OneDrive with
   AutoSave, PowerPoint started as administrator
-- a real screen reader: 2.3 has not yet passed the release gate below.
+- a real screen reader: 2.4 has not yet passed the release gate below.
 - PowerPoint sections and [click] notes on a real deck (the stand-in reads
   them the way PowerPoint documents them)
 
@@ -474,7 +474,7 @@ version and the date:
    comes back to where it was.
 4. The search field can be typed in, and a found slide opened.
 5. Voice Access ("tap Next") and Switch Access press Next once.
-2.3 has not been through this yet.
+2.4 has not been through this yet.
 
 
 Options

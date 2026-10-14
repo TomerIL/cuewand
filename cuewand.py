@@ -46,7 +46,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 APP = "Cuewand"
-VERSION = "2.3"
+VERSION = "2.4"
 HERE = os.path.dirname(os.path.abspath(__file__))
 IS_WIN = sys.platform == "win32"
 BOOT = secrets.token_hex(4)     # changes every time Cuewand starts
