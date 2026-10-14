@@ -1,0 +1,144 @@
+Cuewand design rules
+====================
+
+For anyone changing remote.html (the phone) or host.html (the pairing page).
+Both pages use the same tokens, by the same names, in their :root blocks.
+
+
+Rules
+-----
+1. One primary action per screen. On the talk view it is Next.
+2. Nothing moves under the thumb. The view never changes by itself; new
+   buttons that appear where a finger may be ignore it for about a second;
+   a turn of the phone changes the layout only after 0.7 s, never while a
+   finger is down, and Back/Next ignore presses for a second after.
+3. Every outcome is named where the thumb is: on the Next button, with its
+   own shape (ring, inset ring, dashed frame, amber bars, red cross) and,
+   on Android, its own vibration. Messages about a press sit just above
+   Back/Next, never at the top of the screen.
+4. The time never leaves the Next button. When the big line shows a status,
+   the bottom line shows "12:30 left".
+5. Colour is never the only signal. Red means over time or trouble; amber
+   means look here. Nothing else is red or amber.
+6. Anything that throws work away asks for a second tap, and offers Undo
+   for ten seconds when it can be undone.
+7. Nothing is claimed before the computer confirms it.
+8. One number per fact. The time left is on Next and nowhere else on the
+   talk view; other lines say what to do ("Results · move on").
+9. When room runs short, words give way in a fixed order and nothing is
+   cut mid-word: the step dots, then "of" ("7 /26"), then the top
+   buttons' labels (they come back as soon as they fit); on Next the
+   word "Next" when the time would otherwise shrink below 85 %, then the
+   size of the big line (never below what fits). In the notes, the step
+   you are on keeps two clear lines: "Next click" goes to one line, then
+   steps aside, then the notes shrink (not below 60 %). Tests check
+   every layout at 90-200 %.
+10. Nothing pops up near Back/Next during a show that the presenter did
+   not cause. Questions that can wait (a phone's name) live in the Menu.
+
+
+Tokens
+------
+Colour roles            on black unless said
+  --bg #000             page
+  --surface #141923     sheets, cards
+  --raised #1D2534      a control you can press; neutral mode bands
+  --rail #2B3447        hairlines
+  --outline #5E6B85     control outlines (3.9:1)
+  --text #EDEFF3        text (18:1)
+  --text-2 #CDD2DC      the rest of the notes
+  --text-dim #9BA5B7    secondary text (8.5:1; 7.1:1 on surface)
+  --attention #F2B544   look here; --attention-ink #1B1403 on it (10:1)
+  --attention-deep #1A1204   warn button, empty part
+  --danger #FF4D4D      outlines and marks for trouble
+  --danger-text #FF9494 words on dark red (8.8:1); --danger-deep #260A0A
+  --ok #57C785          connected, ready
+  --level #93A8CF       time left on Next (8.1:1 against --level-empty)
+  --level-ink #0A1020   digits over the level (7.9:1)
+  --level-empty #0A0D13 time used
+  --series #3987E5      bars in the recap
+Type        13 15 17 20 24 32 48 px, plus --cue 23 (first line of the
+            notes), --clock 62 (time on Next), --head 24 (slide number).
+            Tablets: cue 30, clock up to 120, head 28.
+            Text size (--ts, 90-200 %) scales the notes fully and the
+            rest of the talk view up to 150 % (--tsc).
+Spacing     4 8 12 16 24 32
+Radii       8 14 24 pill
+Motion      120 ms (fast), 200 ms (base), 400 ms (slow), one easing curve.
+            "Less motion" (the phone's setting, or Setup) turns slides,
+            ripples and blinks into steady marks.
+Focus       3 px attention outline, 2 px offset.
+
+
+Logo
+----
+The wand (the phone in your hand) points at the cue, the product's own
+Next button: a small squircle with a chevron. One axis runs from the
+grip through the tip to the cue's centre.
+  --brand #0F6E7A       the tile (3.5:1 on black, 6.0:1 on white)
+  --brand-wand #C4E8EC  the wand (4.6:1 on the tile)
+  --brand-cue #FFFFFF   the cue, the brightest part (6.0:1 on the tile)
+The word "cuewand" is the page's text colour (#EDEFF3 on dark,
+#0A0D13 on light). The three --brand colours belong to the logo only and
+never carry a meaning in the interface, so amber still means only "look
+here" and the logo never competes with a warning.
+In the pages: one inline symbol (#cw-logo), used where class="mark";
+30 px tall on the pairing page, 22 px on the phone, 24 px above the
+heading, at the top of every full screen except the start screen, where
+it is centred with the rest. Never on the talk view, never a button.
+The chevron is its own path (.cw-chev), shown only at 1.5 device pixels
+per CSS pixel or more; at 16 and 24 px (favicon, small icons) the cue is
+plain. Files: logo/ (lockups for dark and light, icons, favicon.ico,
+apple-touch-icon.png, one-colour versions). The server serves the
+browser and home-screen icons from there.
+
+
+The Next button
+---------------
+Its fill level is the time left; its colour is how worried to be. The
+digits are drawn twice and clipped at the level line: light above the
+line, dark ink over the fill, so they read at 7:1 or more wherever the
+line crosses them.
+  calm      level on level-empty; text / level-ink
+  warn      attention on attention-deep; attention / attention-ink
+  over      danger-deep, no level; danger-text, danger outline
+  paused    as calm or warn, with a framed "Paused"; nothing dimmed
+  trouble   danger-deep, danger-text; dashed outline when not connected
+  following another phone   a 10 px hatched inset edge; clock untouched
+An amber notch (14 px) at both edges marks where the level should be when
+the current PowerPoint section ends (from the rehearsal).
+When the time would have to shrink below 85 % to fit, the plain word
+"Next" is dropped instead; a status ("Sending", "Last slide") keeps its
+bottom line. The big line steps down (--fit) until it is inside the
+button and clear of the bottom line. Press shapes sit behind the words, never over them.
+Automated tests check digits >= 7:1 and labels >= 4.5:1 in every state.
+
+
+Components
+----------
+big button (primary white / secondary outline / danger), line row (with
+an optional explanation, which is the control's description), chip,
+switch, sheet (bottom sheet on phones, centred panel on tablets), mode
+band (rehearsing / following another phone; one at a time), the strip
+above Back/Next (messages and Undo; exactly as wide as Back/Next, in every
+layout), toast (top, for things not about a press), full screens
+(connect, Setup, ready check) with their button in a footer that never
+moves and "more below" just above that footer. On the talk view, more
+notes below is a small arrow at the right edge, off the words; the fade
+is min(54 px, 20 %) of the notes area.
+Back to N    only on a hidden backup slide reached by a jump; amber edge;
+             the Slides view's Back says the same. Ends when a press lands
+             on an ordinary slide.
+Slide grid   by section; on wide screens one even grid, the section's
+             name on its first slide (headings stay for screen readers).
+
+
+Layouts
+-------
+phone       portrait, shortest side < 600
+land        landscape, height < 600: picture column left, notes and
+            Back/Next right (Back/Next at most 45 %)
+tab         portrait, shortest side >= 600: slide and next slide side by
+            side, Next at most 520 px and Back at most 200 px, on the
+            hand's side
+desk        landscape, height >= 600: presenter view

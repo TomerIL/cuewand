@@ -1,0 +1,14 @@
+# Written by Cuewand while it runs: never part of the repository
+cuewand_session.json
+cuewand_rehearsals.json
+cuewand*.log
+cuewand_selftest.*
+cuewand.lock
+.cuewand_write_test
+cloudflared.exe
+cuewand_pics_*/
+*.tmp
+
+# Python
+__pycache__/
+*.pyc

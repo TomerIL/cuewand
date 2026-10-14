@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="dark">
+<title>Cuewand: connect your phone</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+/* The same tokens, by the same names, as the phone page (remote.html): see DESIGN.txt */
+:root{
+  --brand:#0F6E7A; --brand-wand:#C4E8EC; --brand-cue:#FFFFFF;   /* the logo only: never a meaning in the interface */
+  --bg:#000; --surface:#141923; --raised:#1D2534; --rail:#2B3447; --outline:#5E6B85; --text:#EDEFF3; --text-dim:#9BA5B7;
+  --attention:#F2B544; --attention-ink:#1B1403; --danger:#FF4D4D; --danger-text:#FF9494; --danger-ink:#170303; --ok:#57C785;
+  --t13:13px; --t15:15px; --t17:17px; --t20:20px; --t24:24px; --t32:32px; --t48:48px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --r1:8px; --r2:14px; --r3:24px; --pill:999px;
+  --fast:120ms; --base:200ms; --slow:400ms; --focus:3px solid var(--attention);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--text);font:var(--t17)/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+[hidden]{display:none!important}
+p,h1,h2,ol,ul{margin:0}
+.num{font-family:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 32px 24px;min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:26px}
+/* the logo: one inline symbol (#cw-logo), 30 px tall */
+.mark{display:flex;color:var(--text)}
+.mark .logo{display:block;flex:none;height:30px;width:171px}
+.cw-chev{display:none}                       /* the chevron in the logo's cue, only where it is at least ~4 device px */
+@media (min-resolution:1.5dppx){.cw-chev{display:inline}}
+#ver{color:var(--text-dim);font-size:var(--t15)}
+.grid{flex:1;display:grid;grid-template-columns:minmax(320px,auto) minmax(0,1fr);gap:48px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr;gap:28px}}
+
+/* left: the code */
+.tabs{display:inline-flex;border:1.5px solid var(--outline);border-radius:var(--r2);padding:3px;margin-bottom:16px}
+.tabs button{font:inherit;font-weight:650;font-size:var(--t15);color:var(--text);background:none;border:0;border-radius:var(--r1);min-height:42px;padding:0 16px;cursor:pointer}
+.tabs button[aria-selected=true]{background:var(--text);color:#000}
+.qr{background:#fff;border-radius:var(--r3);padding:10px;line-height:0;width:min(50vh,520px);min-width:260px;max-width:100%}
+.qr svg{width:100%;height:auto;display:block}
+.pin{margin-top:16px;color:var(--text-dim);font-size:var(--t17);max-width:min(50vh,520px);min-width:260px}
+.pin b{color:var(--text);font-weight:700;white-space:nowrap}
+.pin .big{display:block;font-size:var(--t32);letter-spacing:.1em;line-height:1.25;margin-top:2px}
+.url{margin-top:10px;font:13px/1.4 ui-monospace,Consolas,monospace;color:var(--text-dim);overflow-wrap:anywhere;-webkit-user-select:all;user-select:all;max-width:min(50vh,520px)}
+.box{max-width:min(50vh,520px);min-width:260px;display:flex;flex-direction:column;gap:14px}
+
+/* right: what is going on */
+h1{font-size:var(--t48);line-height:1.1;letter-spacing:-.015em;max-width:16em}
+h1.ok{color:var(--ok)}
+#sub{color:var(--text-dim);font-size:var(--t20);margin-top:10px;max-width:34em}
+.status{list-style:none;padding:0;margin:26px 0 0;display:flex;flex-direction:column;gap:16px;max-width:36em}
+.status li{display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start}
+.status i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-weight:800;font-size:var(--t15);color:#000;margin-top:1px;border:2.5px solid var(--outline)}
+.status li.ok i{background:var(--ok);border-color:var(--ok)} .status li.ok i::before{content:"✓"}
+.status li.warn i{background:var(--attention);border-color:var(--attention)} .status li.warn i::before{content:"!"}
+.status b{display:block;font-size:var(--t15);font-weight:600;color:var(--text-dim);letter-spacing:.02em}
+.status span{display:block}
+.bar{height:6px;border-radius:3px;background:var(--rail);overflow:hidden;margin-top:8px;max-width:22em}
+.bar i{display:block;height:100%;background:var(--text);width:0;border:0;border-radius:0;margin:0;transition:width .3s}
+.callout{margin-top:24px;border:1.5px solid var(--attention);border-radius:var(--r3);padding:18px 20px;max-width:36em}
+.callout h2{font-size:var(--t20);margin-bottom:6px}
+.callout ol{padding-left:1.3em;margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.callout p{color:var(--text-dim)}
+.fine{color:var(--text-dim);font-size:var(--t15);line-height:1.5;max-width:40em}
+.link{font:inherit;font-size:var(--t15);color:var(--text);background:none;border:0;padding:8px 0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;margin-top:14px}
+button.go,button.alt{font:inherit;font-weight:650;border-radius:var(--r2);min-height:48px;padding:0 18px;cursor:pointer;align-self:flex-start}
+button.go{background:var(--text);color:#000;border:0}
+button.alt{background:transparent;color:var(--text);border:1.5px solid var(--outline)}
+button.arm{background:var(--danger);color:var(--danger-ink);border-color:var(--danger)}
+button:focus-visible{outline:var(--focus);outline-offset:2px}
+.err{color:var(--danger-text);font-weight:650}
+.foot{margin-top:22px;padding-top:16px;border-top:1px solid var(--rail);display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;justify-content:space-between}
+.by{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:4px 18px}
+.credit{color:var(--text-dim);font-size:var(--t15)}
+.credit a{color:var(--text);text-decoration:underline;text-underline-offset:3px}
+.credit a:focus-visible{outline:var(--focus);outline-offset:2px;border-radius:2px}
+.credit span{margin:0 8px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="cw-logo" viewBox="0 -1676 10619 1862"><g transform="translate(0 -1676) scale(1.8620)"><path style="fill:var(--brand,#0F6E7A)" d="M1000 500C1000 994 994 1000 500 1000C6 1000 0 994 0 500C0 6 6 0 500 0C994 0 1000 6 1000 500Z"/><path style="fill:var(--brand-wand,#C4E8EC)" d="M524 520C524 530.6 520.2 540.4 514 548L298.6 813.8C284 832.2 261.4 844 236 844C191.8 844 156 808.2 156 764C156 738.6 167.8 716 186.2 701.4L452 486C459.6 479.8 469.4 476 480 476C504.3 476 524 495.7 524 520Z"/><path style="fill:var(--brand-cue,#FFFFFF)" d="M812.5 312.5C812.5 436 811 437.5 687.5 437.5C564 437.5 562.5 436 562.5 312.5C562.5 189 564 187.5 687.5 187.5C811 187.5 812.5 189 812.5 312.5Z"/><path class="cw-chev" style="fill:var(--brand,#0F6E7A)" d="M688.8 246.2 738.8 296.2Q742 299.5 743.7 303.7Q745.5 307.9 745.5 312.5Q745.5 317.1 743.7 321.3Q742 325.5 738.8 328.8L688.8 378.8Q685.5 382 681.3 383.7Q677.1 385.5 672.5 385.5Q667.9 385.5 663.7 383.7Q659.5 382 656.2 378.8Q653 375.5 651.3 371.3Q649.5 367.1 649.5 362.5Q649.5 357.9 651.3 353.7Q653 349.5 656.2 346.2L690 312.5L656.2 278.8Q653 275.5 651.3 271.3Q649.5 267.1 649.5 262.5Q649.5 257.9 651.3 253.7Q653 249.5 656.2 246.2Q659.5 243 663.7 241.3Q667.9 239.5 672.5 239.5Q677.1 239.5 681.3 241.3Q685.5 243 688.8 246.2Z"/></g><path transform="translate(2309 0)" style="fill:currentColor" d="M579 24C846 24 1040 -148 1058 -379H809C785 -262 714 -186 582 -186C416 -186 318 -319 318 -527C318 -736 417 -870 582 -870C713 -870 792 -791 811 -678H1058C1036 -913 844 -1080 579 -1080C270 -1080 63 -853 63 -527C63 -201 270 24 579 24ZM1558 21C1704 21 1811 -43 1883 -162V0H2131V-1056H1878V-459C1878 -279 1780 -200 1647 -200C1512 -200 1434 -281 1434 -436V-1056H1182V-396C1182 -125 1337 21 1558 21ZM2797 24C3044 24 3240 -119 3280 -326H3044C3015 -236 2930 -175 2803 -175C2633 -175 2535 -290 2529 -462H3293V-531C3293 -855 3091 -1080 2787 -1080C2491 -1080 2282 -848 2282 -527C2282 -207 2480 24 2797 24ZM2531 -636C2548 -787 2645 -880 2791 -880C2937 -880 3035 -787 3051 -636ZM3640 0H3900L4030 -440C4059 -538 4085 -641 4111 -744C4138 -641 4164 -538 4192 -440L4320 0H4582L4909 -1056H4641L4532 -655C4499 -530 4468 -396 4438 -265C4405 -396 4373 -530 4339 -655L4228 -1056H3995L3883 -655C3848 -529 3816 -394 3783 -263C3751 -394 3721 -529 3688 -655L3579 -1056H3314ZM5320 17C5492 17 5581 -55 5631 -149H5635V0H5883V-720C5883 -940 5720 -1077 5445 -1077C5169 -1077 4997 -938 4985 -728H5228C5235 -817 5317 -881 5440 -881C5561 -881 5633 -817 5633 -727V-719C5633 -647 5566 -644 5370 -622C5152 -599 4955 -540 4955 -300C4955 -89 5110 17 5320 17ZM5382 -170C5272 -170 5201 -219 5201 -302C5201 -398 5293 -437 5401 -453C5505 -469 5603 -485 5634 -505V-391C5634 -268 5547 -170 5382 -170ZM6323 -597C6323 -777 6422 -856 6554 -856C6689 -856 6767 -775 6767 -620V0H7020V-660C7020 -931 6864 -1077 6643 -1077C6498 -1077 6391 -1013 6319 -894V-1056H6071V0H6323ZM7628 21C7766 21 7882 -39 7948 -161H7950V0H8198V-1490H7946V-906H7944C7876 -1022 7763 -1077 7626 -1077C7355 -1077 7171 -854 7171 -529C7171 -200 7352 21 7628 21ZM7687 -190C7531 -190 7426 -310 7426 -529C7426 -747 7531 -868 7687 -868C7852 -868 7960 -734 7960 -529C7960 -323 7852 -190 7687 -190Z"/></symbol></svg>
+<div class="wrap">
+  <header class="top"><div class="mark"><svg class="logo" role="img" aria-label="Cuewand" viewBox="0 0 10619 1862"><use href="#cw-logo"/></svg></div><div class="by"><p class="credit">Made by Tomer Yona<span aria-hidden="true">·</span><a href="https://www.tomeryona.com" target="_blank" rel="noopener noreferrer">tomeryona.com</a><span aria-hidden="true">·</span><a href="https://github.com/TomerIL" target="_blank" rel="noopener noreferrer">GitHub</a></p><span id="ver"></span></div></header>
+
+  <main class="grid">
+    <section aria-label="Codes">
+      <div class="tabs" role="tablist" aria-label="How the phone reaches this computer">
+        <button role="tab" id="tab-lan" aria-selected="true" aria-controls="pane-lan">Same Wi-Fi</button>
+        <button role="tab" id="tab-net" aria-selected="false" aria-controls="pane-net">Over the internet</button>
+      </div>
+
+      <div id="pane-lan" role="tabpanel" aria-labelledby="tab-lan">
+        <div class="qr" id="lan-qr" role="img" aria-label="Code for the phone’s camera"></div>
+        <p class="pin" id="lan-pin">No camera? On the phone, open <b id="lan-short"></b> in the browser and type<b class="big num" id="pin"></b></p>
+        <p class="pin err" id="lan-none" hidden>This computer is not on any network. Join a Wi-Fi network, or your phone’s hotspot, and the code appears here.</p>
+      </div>
+
+      <div id="pane-net" role="tabpanel" aria-labelledby="tab-net" hidden>
+        <div id="net-off" class="box">
+          <p>For when the Wi-Fi keeps devices apart, for a phone on mobile data, or for a co-presenter somewhere else.</p>
+          <button class="go" id="net-go">Turn on the internet link</button>
+          <p class="fine" id="net-have"></p>
+          <p class="fine">It uses Cloudflare’s free tunnel service, which makes no promise of staying up. Slide pictures and notes travel through Cloudflare, encrypted on the way.</p>
+        </div>
+        <div id="net-busy" class="box" hidden>
+          <p id="net-busy-t">Opening the link</p>
+          <div class="bar" style="margin:0;max-width:none"><i id="net-bar"></i></div>
+        </div>
+        <div id="net-on" hidden>
+          <div class="qr" id="net-qr" role="img" aria-label="Code for the internet link"></div>
+          <p class="pin" id="net-live"></p>
+          <div class="url" id="net-url"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+            <button class="alt" id="net-copy">Copy the link</button>
+            <button class="alt" id="net-new">Get a new link</button>
+          </div>
+          <p class="fine" style="margin-top:12px;max-width:min(50vh,520px)">A new address takes a moment to be known everywhere. If the phone cannot find the page, wait 20 seconds and scan again.</p>
+        </div>
+        <div id="net-err" class="box" hidden>
+          <p class="err" id="net-err-t"></p>
+          <button class="alt" id="net-retry">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="Status">
+      <h1 id="head">Point your phone’s camera at the code</h1>
+      <p id="sub">It opens a page in the phone’s browser. There is nothing to install.</p>
+      <ul class="status">
+        <li id="st-ppt"><i aria-hidden="true"></i><div><b>PowerPoint</b><span id="s-text">Looking for your slides</span><div class="bar" id="pic-bar" hidden><i></i></div></div></li>
+        <li id="st-phone"><i aria-hidden="true"></i><div><b>Phone</b><span id="s-phones">No phone connected yet</span></div></li>
+      </ul>
+
+      <button class="link" id="help-open" aria-expanded="false" aria-controls="help">The phone cannot open the page?</button>
+      <div class="callout" id="help" hidden>
+        <h2>If the phone cannot open the page</h2>
+        <p>University, hotel and conference Wi-Fi often stops devices from reaching each other. Two ways round it:</p>
+        <ol>
+          <li><b>Your phone’s hotspot.</b> Turn the hotspot on, connect this computer to it, and scan again: the code here changes by itself. The slides do not use your mobile data.</li>
+          <li><b>The internet link.</b> Choose “Over the internet” above the code. The phone needs data; this computer needs the internet.</li>
+        </ol>
+        <p style="margin-top:10px">Windows firewall: when it asks about Python, tick Public as well as Private, then Allow. Hotel, venue and hotspot networks count as Public.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p class="fine" id="foot-t">Keep the Cuewand window open while you present; close it to stop. Anyone who has a code can run your slides while Cuewand runs, until you make new codes. On the Same Wi-Fi code nothing is encrypted, so on a network you do not trust use your phone’s hotspot or the internet link.</p>
+    <button class="alt" id="rotate">Make new codes</button>
+  </footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const H = new URLSearchParams(location.search).get('h') || '';
+const hq = '?h=' + encodeURIComponent(H);
+const t0 = Date.now();
+let lanUrl = null, netUrl = '', netState = '', tab = 'lan', helpAsked = false, everPhone = false;
+
+function pick(which) {
+  tab = which;
+  for (const k of ['lan', 'net']) { $('tab-' + k).setAttribute('aria-selected', String(k === which)); $('pane-' + k).hidden = k !== which; }
+}
+$('tab-lan').addEventListener('click', () => pick('lan'));
+$('tab-net').addEventListener('click', () => pick('net'));
+function show(which) { ['off', 'busy', 'on', 'err'].forEach(k => { $('net-' + k).hidden = k !== which; }); }
+const post = (path, body) => fetch(path + hq, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})}).catch(() => null);
+
+async function startNet(restart) {
+  show('busy'); $('net-busy-t').textContent = restart ? 'Opening a new link' : 'Opening the link';
+  await post('/api/host/tunnel', restart ? {restart: true} : {});
+  refresh();
+}
+$('net-go').addEventListener('click', () => startNet(false));
+$('net-new').addEventListener('click', () => startNet(true));
+$('net-retry').addEventListener('click', () => startNet(false));
+$('net-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(netUrl); $('net-copy').textContent = 'Copied'; }
+  catch (e) { $('net-copy').textContent = 'Select the address above and copy it'; }
+  setTimeout(() => { $('net-copy').textContent = 'Copy the link'; }, 2200);
+});
+$('help-open').addEventListener('click', () => { helpAsked = true; setHelp($('help').hidden); });
+function setHelp(on) { $('help').hidden = !on; $('help-open').setAttribute('aria-expanded', String(on)); }
+
+/* New codes cut off every phone, so they ask twice. */
+let armTo = 0;
+$('rotate').addEventListener('click', async () => {
+  const b = $('rotate');
+  if (!b.classList.contains('arm')) {
+    b.classList.add('arm'); b.textContent = 'Disconnect every phone? Click again';
+    armTo = setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Make new codes'; }, 4000);
+    return;
+  }
+  clearTimeout(armTo); b.classList.remove('arm'); b.textContent = 'Make new codes';
+  await post('/api/host/rotate'); lanUrl = null; netState = ''; refresh();
+});
+
+function mark(id, cls) { $(id).className = cls; }
+
+async function refresh() {
+  let d;
+  try {
+    const r = await fetch('/api/host/info' + hq, {cache: 'no-store'});
+    if (!r.ok) throw new Error(r.status);
+    d = await r.json();
+  } catch (e) {
+    $('head').className = ''; $('head').textContent = 'Cuewand is not running';
+    $('sub').textContent = 'Start it again and use the page it opens. Phones that were connected carry on by themselves.';
+    mark('st-ppt', ''); mark('st-phone', ''); return;
+  }
+  $('ver').textContent = 'version ' + d.version + (d.restored ? ' · continuing the last session' : '');
+
+  // PowerPoint
+  const [got, total, failed] = d.pics;
+  const preparing = d.show === 'idle' && total > 0 && got + failed < total;
+  $('s-text').textContent = d.status;
+  mark('st-ppt', d.link !== 'ok' || (d.show === 'idle' && failed > 0 && !preparing) ? 'warn'
+    : (d.show === 'running' || d.show === 'ended' || (d.show === 'idle' && !preparing)) ? 'ok' : '');
+  $('pic-bar').hidden = !preparing;
+  if (preparing) $('pic-bar').firstElementChild.style.width = (100 * (got + failed) / total) + '%';
+
+  // phones
+  const n = d.phones;
+  if (n) everPhone = true;
+  const named = (d.phoneList || []).map(p => p.name + (p.holder ? ' (has the slides)' : ''));
+  $('s-phones').textContent = n === 0 ? (everPhone ? 'No phone connected right now' : 'No phone connected yet')
+    : named.length ? (n === 1 ? 'Connected: ' : n + ' phones connected: ') + named.join(', ') : n === 1 ? '1 phone connected' : n + ' phones connected';
+  mark('st-phone', n ? 'ok' : '');
+  $('head').className = n ? 'ok' : '';
+  $('head').textContent = n === 0 ? 'Point your phone’s camera at the code' : n === 1 ? 'Your phone is connected' : n + ' phones are connected';
+  $('sub').textContent = n === 0 ? 'It opens a page in the phone’s browser. There is nothing to install.'
+    : 'Carry on from the phone. Keep the Cuewand window open; this page can stay in the background.';
+  if (!n && !everPhone && !helpAsked && Date.now() - t0 > 20000 && $('help').hidden) setHelp(true);   // twenty seconds and nothing: offer the ways round
+  if (n && !helpAsked) setHelp(false);
+
+  // the Wi-Fi code
+  const none = d.lan.short.startsWith('127.');
+  $('lan-none').hidden = !none; $('lan-qr').hidden = none || !d.lan.qr; $('lan-pin').hidden = none;
+  if (d.lan.url !== lanUrl) {
+    lanUrl = d.lan.url;
+    if (d.lan.qr) $('lan-qr').innerHTML = d.lan.qr;
+  }
+  $('lan-short').textContent = d.lan.short;
+  $('pin').textContent = d.pin.slice(0, 3) + ' ' + d.pin.slice(3);
+
+  // the internet link
+  const t = d.net, key = t.status + '|' + t.url + '|' + t.error;
+  $('net-have').textContent = t.have ? 'The link program is already on this computer, so this takes a few seconds.'
+    : 'The first time, Cuewand downloads Cloudflare’s link program (about 55 MB) and checks it is the genuine file. At home you can do that ahead of time: see README.';
+  if (t.status === 'downloading') {
+    show('busy'); $('net-busy-t').textContent = 'Downloading Cloudflare’s link program, one time only';
+    $('net-bar').style.width = Math.round(t.progress * 100) + '%';
+  } else if (t.status === 'starting') {
+    show('busy'); $('net-busy-t').textContent = 'Opening the link. This takes a few seconds.';
+    $('net-bar').style.width = '100%';
+  } else if (key !== netState) {
+    if (t.status === 'on') {
+      netUrl = t.url; $('net-url').textContent = netUrl;
+      if (t.qr) { $('net-qr').innerHTML = t.qr; $('net-qr').hidden = false; } else $('net-qr').hidden = true;
+      show('on');
+    } else if (t.status === 'error') { $('net-err-t').textContent = t.error; show('err'); }
+    else show('off');
+  }
+  if (t.status === 'on')
+    $('net-live').textContent = t.answering
+      ? 'The link is up: Cuewand reached itself through it a moment ago. Scan this code, or send the address below to a co-presenter.'
+      : (t.note || 'The link is not answering from this computer right now. Cuewand keeps checking; if this stays, get a new link.');
+  netState = key;
+}
+refresh();
+setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+@echo off
+setlocal
+title Cuewand: internet link
+pushd "%~dp0"
+if not exist cuewand.py goto notextracted
+
+set "PY="
+py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
+if not defined PY python -c "import sys" >nul 2>nul && set "PY=python"
+if not defined PY goto nopython
+
+%PY% cuewand.py --prepare %*
+echo.
+pause
+exit /b
+
+:notextracted
+echo.
+echo  This file was started from inside the zip file. Extract the whole Cuewand
+echo  folder first (right-click the zip, Extract All), then double-click this
+echo  file in the extracted folder.
+echo.
+pause
+exit /b 1
+
+:nopython
+echo.
+echo  Cuewand needs Python, which was not found on this computer.
+echo  Install it from https://www.python.org/downloads/ and tick "Add python.exe to PATH",
+echo  then double-click this file again.
+echo.
+pause
+exit /b 1
