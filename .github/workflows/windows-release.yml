@@ -3,11 +3,17 @@ name: Windows release
 # Builds Cuewand-for-Windows.zip: the app with its own Python and pywin32 inside,
 # so that nothing has to be installed. Checks that it starts and answers on
 # Windows, then attaches it to the release. Runs when a version tag (v2.3, ...)
-# is pushed, or by hand from the Actions tab (then the zip is kept as an artifact).
+# is pushed, or by hand from the Actions tab: with a version, it publishes that
+# release (making the tag); without one, it only keeps the zip as an artifact.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example v2.3 (empty: only build and check)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -91,14 +97,15 @@ jobs:
         run: Compress-Archive -Path build\Cuewand -DestinationPath Cuewand-for-Windows.zip
 
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" Cuewand-for-Windows.zip --title "Cuewand ${{ github.ref_name }}" --notes-file .github/release-notes.md
+          TAG: ${{ inputs.version || github.ref_name }}
+        run: gh release create "$env:TAG" Cuewand-for-Windows.zip --target "${{ github.sha }}" --title "Cuewand $env:TAG" --notes-file .github/release-notes.md
 
-      - name: Keep the zip (runs started by hand)
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Keep the zip (runs started by hand without a version)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.version == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: Cuewand-for-Windows
