@@ -37,7 +37,8 @@ def server(*args, keep=False):
     out = open(os.path.join(DATA, "server.out"), "w")
     _proc = subprocess.Popen([sys.executable, os.path.join(ROOT, "cuewand.py"), "--demo", "--no-browser",
                               "--port", str(PORT), *args],
-                             env=dict(os.environ, CUEWAND_DATA=DATA), stdout=out, stderr=subprocess.STDOUT)
+                             # unbuffered, so the file shows each line at once, as a console window does
+                             env=dict(os.environ, CUEWAND_DATA=DATA, PYTHONUNBUFFERED="1"), stdout=out, stderr=subprocess.STDOUT)
     for _ in range(80):
         try:
             with urllib.request.urlopen(B + "/api/ping", timeout=0.5) as r:

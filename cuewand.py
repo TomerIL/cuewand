@@ -3621,8 +3621,11 @@ def main():
             with open(os.path.join(data_dir(), "cuewand_session.json"), encoding="utf-8") as f:
                 saved = json.load(f)
             url = f"http://127.0.0.1:{int(saved.get('port') or args.port)}/host?h={saved['host_key']}"
-            print(f"  Opening its pairing page:\n    {url}\n")
-            webbrowser.open(url)
+            if args.no_browser:
+                print(f"  Its pairing page:\n    {url}\n")
+            else:
+                print(f"  Opening its pairing page:\n    {url}\n")
+                webbrowser.open(url)
         except Exception:
             print("  Use the pairing page it opened, or close that window first.\n")
         return
