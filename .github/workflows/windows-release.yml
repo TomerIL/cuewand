@@ -94,7 +94,10 @@ jobs:
 
       - name: Zip
         shell: pwsh
-        run: Compress-Archive -Path build\Cuewand -DestinationPath Cuewand-for-Windows.zip
+        run: |
+          # the check above leaves compiled files behind; they do not belong in the download
+          Get-ChildItem build\Cuewand -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+          Compress-Archive -Path build\Cuewand -DestinationPath Cuewand-for-Windows.zip
 
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
