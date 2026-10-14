@@ -34,7 +34,11 @@ Start
 3. A page opens in your browser with a large code. Point the phone's camera
    at it. No camera, or it will not scan? The page also shows a short
    address and a 6-digit number to type on the phone.
-4. Open your deck in PowerPoint and give Cuewand a moment. It makes a
+4. Open your deck in PowerPoint (before or after scanning, either works).
+   There is no file to choose in Cuewand: it finds the deck open in
+   PowerPoint by itself, and the page says "Found your deck". With several
+   decks open, it uses the one in front; click another deck's window to
+   switch. Give Cuewand a moment: it makes a
    picture of every slide now, while no slide show runs, so that it never
    has to ask PowerPoint for one during your talk. The page on the computer and
    the phone both show the progress.

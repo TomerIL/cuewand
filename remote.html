@@ -1454,7 +1454,8 @@ function render(before) {
   if (ret && (!live || s.slide === ret.n || (ret.deck && ret.deck !== s.deckId) || (before && before.slide !== s.slide && !s.backup))) { ret = null; saveRet(); }
   header();
   $('pic').classList.toggle('black', live && s.black);
-  $('su-deck').textContent = s.deck ? `${s.deck}, ${s.total} slides.` : 'No presentation is open in PowerPoint yet. You can still set things up.';
+  $('su-deck').textContent = s.deck ? `Found in PowerPoint: ${s.deck}, ${s.total} slides.`
+    : 'Open your deck in PowerPoint on the computer: Cuewand finds it by itself. You can set things up meanwhile.';
 
   if (idle) {
     const [got, total, failed] = s.pics;
@@ -2379,10 +2380,10 @@ async function runCheck() {
   if (s) {
     if (s.show === 'running') ckLine('ok', `${s.deck} is on screen, slide ${s.slide} of ${s.total}.`);
     else if (s.show === 'ended') ckLine('ok', `${s.deck} is at the end of its slide show.`);
-    else if (s.show === 'idle') ckLine('ok', `${s.deck} is open.`, 'The button below starts the slide show.');
+    else if (s.show === 'idle') ckLine('ok', `Found your deck: ${s.deck}.`, 'The button below starts the slide show.');
     else if (s.link === 'off') { bad++; ckLine('bad', 'Cuewand cannot talk to PowerPoint on this computer.', 'No notes, pictures or pace until that is fixed. Close the Cuewand window and start it again; the window says what is wrong.'); }
     else if (s.link === 'blocked') { warn++; ckLine('warn', 'PowerPoint is open but does not answer Cuewand.', 'Open your presentation. If it is open, click Enable Editing on its yellow bar, or click any other window on the computer once.'); }
-    else { warn++; ckLine('warn', 'No presentation is open in PowerPoint.', 'Next and Back will press the arrow keys. No notes, pictures or pace.'); }
+    else { warn++; ckLine('warn', 'No presentation is open in PowerPoint.', 'Open your deck in PowerPoint and run this check again: Cuewand finds it by itself. Until then, Next and Back press the arrow keys, with no notes, pictures or pace.'); }
   } else if (ms !== null) { bad++; ckLine('bad', 'The computer did not answer.'); }
   if (awake === 'lock') ckLine('ok', 'The screen will stay on.');
   else if (awake === 'video') ckLine('ok', 'The screen is being kept on.', 'On this connection Cuewand does it by playing a silent, invisible video. Most phones honour that; watch it through your first slide to be sure.');

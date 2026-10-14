@@ -2,7 +2,7 @@
 
 1. Extract the zip (right-click it, **Extract All**).
 2. In the extracted folder, double-click **Start Cuewand.bat**. A page with a large code opens.
-3. Open your deck in PowerPoint and scan the code with your phone.
+3. Open your deck in PowerPoint and scan the code with your phone, in either order. There is no file to choose: Cuewand finds the deck open in PowerPoint by itself, and the page says "Found your deck".
 
 The first time, Windows may say the file came from the internet and is not signed ("Windows protected your PC"). Choose **More info**, then **Run anyway**.
 

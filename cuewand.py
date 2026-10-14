@@ -883,6 +883,7 @@ class WindowsBackend:
         self.announced = False
         self.blocked = False
         self.blocked_since = 0.0
+        self.open_decks = 0   # presentations open in PowerPoint, for the pairing page
         self.laser_want = False
         self.laser_time = 0.0
         self.laser_lock = threading.Lock()
@@ -932,12 +933,15 @@ class WindowsBackend:
                 pics = f"Slide pictures: {got} of {total}; {failed} could not be made."
             else:
                 pics = f"Preparing slide pictures: {got} of {total}. Wait for it before you start."
-            return f'PowerPoint: {s["deck"]} is open, slide show not started. {pics}'
+            many = (f' {self.open_decks} decks are open: Cuewand uses the one in front. To use another, '
+                    'click its window in PowerPoint.') if self.open_decks > 1 else ''
+            return f'Found your deck: {s["deck"]}. Slide show not started. {pics}{many}'
         if self.blocked:
             return ("PowerPoint is running but does not answer Cuewand. Open a presentation; if one "
                     "is open, click Enable Editing on its yellow bar, or click any other window once "
                     "and then PowerPoint again, or check that PowerPoint was not started as administrator.")
-        return "PowerPoint is not open. Next and Back press the arrow keys."
+        return ("Open your deck in PowerPoint. Cuewand finds it by itself: there is no file to "
+                "choose. Until then, Next and Back press the arrow keys.")
 
     def command(self, name: str, args: dict, on_finish=None) -> str:
         """Carry out one press. Raises TimeoutError if PowerPoint never started
@@ -1282,7 +1286,8 @@ class WindowsBackend:
             snap = dict(EMPTY_SHOW)
         self.cv = None
         self.show_fail = 0
-        if int(app.Presentations.Count) >= 1:
+        self.open_decks = int(app.Presentations.Count)
+        if self.open_decks >= 1:
             pres = self._idle_pres(app)
             total = int(pres.Slides.Count)
             self._read_aspect(pres)
@@ -2791,7 +2796,7 @@ class Context:
                 "pin": self.pin, "net": net, "phones": self.hub.client_count(),
                 "phoneList": [{"name": p["name"] or "A phone", "holder": p["cid"] == self.holder}
                               for p in self.hub.phones() if p["here"]],
-                "status": self.backend.describe(), "show": snap["show"],
+                "status": self.backend.describe(), "show": snap["show"], "deck": snap["deck"],
                 "pics": snap["pics"], "link": snap["link"], "restored": self.restored}
 
 

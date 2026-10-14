@@ -35,10 +35,12 @@ with sync_playwright() as p:
     check("the tab and home-screen icons are linked", icons == ["/favicon.ico", "/favicon.svg", "/icon-192.png", "/apple-touch-icon.png"], icons)
     check("the primary button is not amber (amber is for attention only)", pg.evaluate("getComputedStyle(document.getElementById('net-go')).backgroundColor") == "rgb(237, 239, 243)")
     check("help is folded away at first", not pg.is_visible("#help"))
+    check("the deck it found is lit up for a moment on the PowerPoint row", "found" in (pg.get_attribute("#st-ppt", "class") or ""), pg.get_attribute("#st-ppt", "class"))
     links = pg.evaluate("[...document.querySelectorAll('.credit a')].map(a => [a.textContent, a.href, a.target, a.rel])")
     check("the footer says who made Cuewand, with links to the website and GitHub that open in a new tab",
           t(".credit").startswith("Made by Tomer Yona") and links == [["tomeryona.com", "https://www.tomeryona.com/", "_blank", "noopener noreferrer"], ["GitHub", "https://github.com/TomerIL", "_blank", "noopener noreferrer"]], links)
     pg.wait_for_timeout(21000)
+    check("and the light goes after a few seconds, the row still marked ready", (pg.get_attribute("#st-ppt", "class") or "").split() == ["ok"], pg.get_attribute("#st-ppt", "class"))
     check("twenty seconds with no phone: the ways round a blocked network open by themselves", pg.is_visible("#help") and "hotspot" in t("#help").lower() and pg.get_attribute("#help-open", "aria-expanded") == "true")
     pg.screenshot(path=f"{OUT}/host_help.png")
     urllib.request.urlopen(urllib.request.Request(B + "/api/state?since=0&c=testphone", headers={"X-Cuewand-Key": K})).read(); pg.wait_for_timeout(1800)

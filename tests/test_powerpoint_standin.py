@@ -219,6 +219,7 @@ def settle(t=0.6): time.sleep(t); return hub.snapshot()
 def logged(text): return text in open(LOG).read()
 
 s = settle(); check("no PowerPoint -> arrow-key mode", s["mode"] == "keys" and s["show"] == "none" and s["link"] == "ok", be.describe())
+check("pairing page, nothing open: says to open the deck and that Cuewand finds it by itself", "Open your deck in PowerPoint" in be.describe() and "finds it by itself" in be.describe() and "arrow keys" in be.describe(), be.describe())
 r = [be.command("next", {}), be.command("prev", {}), be.command("black", {})]
 check("keys: Right, Left, B pressed and released; each reported done", calls["keys"] == [(0x27, 1), (0x27, 3), (0x25, 1), (0x25, 3), (0x42, 0), (0x42, 2)] and r == ["done"] * 3, (calls["keys"], r))
 be.laser(0.5, 0.5, True); check("keys: pad maps to main screen", calls["cursor"][-1] == (959, 539), calls["cursor"][-1]); be.laser(0.5, 0.5, False)
@@ -247,6 +248,7 @@ check("a picture that fails is not counted ready, and the pairing page keeps wai
 s = settle(1.6)
 check("the failed picture is tried again and made", s["pics"] == [5, 5, 0] and sorted(EXPORTS) == [(1, False), (2, False), (3, False), (4, False), (4, False), (5, False)] and slides[0].exports == [("JPG", 960, 540)], (s["pics"], EXPORTS))
 check("pairing page says the pictures are ready", "Slide pictures are ready" in be.describe(), be.describe())
+check("pairing page names the deck it found, and with one deck open says nothing about several", be.describe().startswith("Found your deck: Talk.pptx.") and "decks are open" not in be.describe(), be.describe())
 check("titles and notes read ahead of the talk too; flaky notes retried", be.outline_cache is not None and [r["notes"] for r in be.outline_cache] == [True, False, True, True, True], be.outline_cache and [r["notes"] for r in be.outline_cache])
 sig0 = s["deckId"]
 
@@ -272,8 +274,10 @@ sig0 = s["deckId"]; EXPORTS.clear()
 other = Pres("Other.pptx", [Slide(i, f"O{i}", "", False, 0) for i in range(1, 4)]); other.Saved = 0
 APP.Presentations.items.insert(0, other); s = settle(1.0)
 check("a second deck in front: its pictures are made", s["deck"] == "Other.pptx" and s["pics"] == [3, 3, 0] and len(EXPORTS) == 3, (s["deck"], s["pics"], len(EXPORTS)))
+check("two decks open: the pairing page names the one in front and says how to switch", be.describe().startswith("Found your deck: Other.pptx.") and "2 decks are open: Cuewand uses the one in front" in be.describe(), be.describe())
 APP.Presentations.items.remove(other); s = settle(0.8)
 check("back to the first deck: its pictures are still there, nothing is made again", s["deck"] == "Talk.pptx" and s["deckId"] == sig0 and s["pics"] == [5, 5, 0] and len(EXPORTS) == 3 and be.slide_image(2) is not None, (s["deck"], s["pics"], len(EXPORTS)))
+check("one deck again: the note about several decks is gone", be.describe().startswith("Found your deck: Talk.pptx.") and "decks are open" not in be.describe(), be.describe())
 EXPORTS.clear()
 
 r = be.command("start", {"from": "current"}); s = hub.snapshot()

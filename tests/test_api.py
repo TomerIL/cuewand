@@ -65,6 +65,7 @@ c, d, _ = req("/api/host/info?h=" + H, key=None)
 check("host info: code picture, number, short address, picture count",
       c == 200 and d["lan"]["qr"].startswith("<svg") and d["net"]["status"] == "off" and d["pin"] == PIN
       and d["lan"]["short"].endswith(f":{PORT}") and d["pics"] == [8, 8, 0] and d["link"] == "ok", d)
+check("host info names the deck it found", d.get("deck") == "Demo deck.pptx", d.get("deck"))
 
 # ---- pairing with the 6-digit number ----
 c, d, _ = req("/api/pair", {"pin": "000000"}, key=None); check("wrong number -> 403 with a plain reason", c == 403 and "number" in d["error"], d)

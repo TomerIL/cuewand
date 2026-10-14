@@ -61,6 +61,8 @@ h1.ok{color:var(--ok)}
 .status li.warn i{background:var(--attention);border-color:var(--attention)} .status li.warn i::before{content:"!"}
 .status b{display:block;font-size:var(--t15);font-weight:600;color:var(--text-dim);letter-spacing:.02em}
 .status span{display:block}
+.status li.found{background:color-mix(in srgb,var(--ok) 18%,transparent);box-shadow:0 0 0 8px color-mix(in srgb,var(--ok) 18%,transparent);border-radius:4px}
+.status li{transition:background .6s,box-shadow .6s}
 .bar{height:6px;border-radius:3px;background:var(--rail);overflow:hidden;margin-top:8px;max-width:22em}
 .bar i{display:block;height:100%;background:var(--text);width:0;border:0;border-radius:0;margin:0;transition:width .3s}
 .callout{margin-top:24px;border:1.5px solid var(--attention);border-radius:var(--r3);padding:18px 20px;max-width:36em}
@@ -133,7 +135,7 @@ button:focus-visible{outline:var(--focus);outline-offset:2px}
       <h1 id="head">Point your phone’s camera at the code</h1>
       <p id="sub">It opens a page in the phone’s browser. There is nothing to install.</p>
       <ul class="status">
-        <li id="st-ppt"><i aria-hidden="true"></i><div><b>PowerPoint</b><span id="s-text">Looking for your slides</span><div class="bar" id="pic-bar" hidden><i></i></div></div></li>
+        <li id="st-ppt"><i aria-hidden="true"></i><div><b>PowerPoint</b><span id="s-text">Looking for your deck in PowerPoint</span><div class="bar" id="pic-bar" hidden><i></i></div></div></li>
         <li id="st-phone"><i aria-hidden="true"></i><div><b>Phone</b><span id="s-phones">No phone connected yet</span></div></li>
       </ul>
 
@@ -164,6 +166,7 @@ const H = new URLSearchParams(location.search).get('h') || '';
 const hq = '?h=' + encodeURIComponent(H);
 const t0 = Date.now();
 let lanUrl = null, netUrl = '', netState = '', tab = 'lan', helpAsked = false, everPhone = false;
+let lastDeck = '', foundUntil = 0;   // a deck that has just been found is lit up for a moment
 
 function pick(which) {
   tab = which;
@@ -222,8 +225,11 @@ async function refresh() {
   const [got, total, failed] = d.pics;
   const preparing = d.show === 'idle' && total > 0 && got + failed < total;
   $('s-text').textContent = d.status;
-  mark('st-ppt', d.link !== 'ok' || (d.show === 'idle' && failed > 0 && !preparing) ? 'warn'
-    : (d.show === 'running' || d.show === 'ended' || (d.show === 'idle' && !preparing)) ? 'ok' : '');
+  if (d.deck && d.deck !== lastDeck) foundUntil = Date.now() + 6000;
+  lastDeck = d.deck || '';
+  mark('st-ppt', (d.link !== 'ok' || (d.show === 'idle' && failed > 0 && !preparing) ? 'warn'
+    : (d.show === 'running' || d.show === 'ended' || (d.show === 'idle' && !preparing)) ? 'ok' : '')
+    + (Date.now() < foundUntil ? ' found' : ''));
   $('pic-bar').hidden = !preparing;
   if (preparing) $('pic-bar').firstElementChild.style.width = (100 * (got + failed) / total) + '%';
 

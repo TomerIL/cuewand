@@ -33,7 +33,7 @@ Nothing is installed on the phone: it scans a code and a web page opens.</p>
 
 1. Download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest) and extract it (right-click, Extract All).
 2. Double-click **Start Cuewand.bat**. A page opens in your browser with a large code.
-3. Open your deck in PowerPoint and scan the code with the phone's camera.
+3. Open your deck in PowerPoint and scan the code with the phone's camera, in either order. There is no file to choose in Cuewand: it finds the deck open in PowerPoint by itself, and the page on the laptop says "Found your deck".
 4. On the phone, Setup asks for the talk length and the alerts. One tap runs a ready check; the button under its answer starts the slide show.
 
 **Windows firewall:** when Windows asks about Python, tick **Public as well as Private**, then Allow. Hotel, venue and hotspot networks count as Public.
