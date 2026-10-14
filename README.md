@@ -26,12 +26,12 @@ Nothing is installed on the phone: it scans a code and a web page opens.</p>
 ## What you need
 
 - A **Windows laptop with PowerPoint** (it has run on Windows 11 with PowerPoint 16). There is no Mac version.
-- **Python 3.8 or newer** from [python.org](https://www.python.org/downloads/). On its first start Cuewand installs one package, pywin32, which is what talks to PowerPoint; that needs the internet once.
+- **Nothing else**, if you download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest): it carries its own Python. (Running from the source code instead needs Python 3.8 or newer from [python.org](https://www.python.org/downloads/); on its first start Cuewand then installs pywin32, which is what talks to PowerPoint.)
 - **A phone with a browser** on the same Wi-Fi as the laptop, or the phone's own hotspot, or the optional internet link.
 
 ## Start
 
-1. Download this repository (**Code › Download ZIP**, or `Cuewand.zip` from [Releases](https://github.com/TomerIL/cuewand/releases) when there is one) and extract it.
+1. Download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest) and extract it (right-click, Extract All).
 2. Double-click **Start Cuewand.bat**. A page opens in your browser with a large code.
 3. Open your deck in PowerPoint and scan the code with the phone's camera.
 4. On the phone, Setup asks for the talk length and the alerts. One tap runs a ready check; the button under its answer starts the slide show.
@@ -70,7 +70,7 @@ runs the checks on any computer (the two browser test files need [Playwright](ht
 
 Made by [Tomer Yona](https://www.tomeryona.com). Built with Claude, Anthropic's AI model.
 
-The pairing codes are drawn by [segno](https://github.com/heuer/segno) (BSD licence), which travels in `_vendor/`. Cuewand installs [pywin32](https://github.com/mhammond/pywin32) from PyPI, and downloads [cloudflared](https://github.com/cloudflare/cloudflared) (Apache 2.0) only when you ask for the internet link.
+The pairing codes are drawn by [segno](https://github.com/heuer/segno) (BSD licence), which travels in `_vendor/`. Cuewand-for-Windows.zip carries [Python](https://www.python.org) and [pywin32](https://github.com/mhammond/pywin32) (both PSF licence); running from source installs pywin32 from PyPI. [cloudflared](https://github.com/cloudflare/cloudflared) (Apache 2.0) is downloaded only when you ask for the internet link.
 
 Cuewand is not affiliated with or endorsed by Microsoft, Apple, Google or Cloudflare. PowerPoint and Windows are trademarks of Microsoft.
 

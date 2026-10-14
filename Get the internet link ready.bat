@@ -5,7 +5,9 @@ pushd "%~dp0"
 if not exist cuewand.py goto notextracted
 
 set "PY="
-py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
+rem Cuewand-for-Windows.zip carries its own Python: use it first
+if exist "python\python.exe" set "PY=python\python.exe"
+if not defined PY py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
 if not defined PY python -c "import sys" >nul 2>nul && set "PY=python"
 if not defined PY goto nopython
 

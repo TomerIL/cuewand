@@ -26,9 +26,10 @@ Start
 -----
 1. Unzip this folder anywhere on the computer that shows the slides.
 2. Double-click "Start Cuewand.bat".
-   It needs Python 3.8 or newer (python.org). The very first time, it
-   installs one Python package, pywin32, which is what talks to PowerPoint;
-   that needs the internet once. The window must then say
+   Cuewand-for-Windows.zip carries its own Python: nothing to install.
+   Any other download needs Python 3.8 or newer (python.org), and the very
+   first time it installs one Python package, pywin32, which is what talks
+   to PowerPoint; that needs the internet once. The window must then say
    "PowerPoint connection: ready."
 3. A page opens in your browser with a large code. Point the phone's camera
    at it. No camera, or it will not scan? The page also shows a short
@@ -377,7 +378,8 @@ tracking.
   and your phone: over your Wi-Fi or hotspot, or, with the internet link,
   through Cloudflare's servers, which relay it encrypted on the way.
 - On its first run on Windows, Cuewand downloads one Python package,
-  pywin32, from PyPI (the Python package index).
+  pywin32, from PyPI (the Python package index). Cuewand-for-Windows.zip
+  carries it already, and downloads nothing.
 - "Get the internet link ready.bat" downloads Cloudflare's program,
   cloudflared, from Cloudflare's own GitHub page. The internet link then
   uses Cloudflare's free "quick tunnels", which Cloudflare says are meant
@@ -490,10 +492,11 @@ Made by Tomer Yona: www.tomeryona.com, github.com/TomerIL.
 Built with Claude, Anthropic's AI model.
 The logo and its icons are in the logo folder.
 The pairing codes are drawn by segno (BSD licence, by Lars Heuer), which
-travels in the _vendor folder. Cuewand installs pywin32 (Python Software
-Foundation licence) from PyPI, and downloads cloudflared (Apache 2.0
-licence) from Cloudflare only when you ask for the internet link; neither
-is included here.
+travels in the _vendor folder. Cuewand-for-Windows.zip also carries
+Python and pywin32 (both Python Software Foundation licence), in the
+python folder; other downloads install pywin32 from PyPI. Cloudflared
+(Apache 2.0 licence) is downloaded from Cloudflare only when you ask for
+the internet link, and is not included.
 Cuewand is not affiliated with or endorsed by Microsoft, Apple, Google or
 Cloudflare. PowerPoint and Windows are trademarks of Microsoft; the other
 product names are trademarks of their owners.

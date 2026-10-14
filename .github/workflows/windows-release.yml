@@ -1,0 +1,105 @@
+name: Windows release
+
+# Builds Cuewand-for-Windows.zip: the app with its own Python and pywin32 inside,
+# so that nothing has to be installed. Checks that it starts and answers on
+# Windows, then attaches it to the release. Runs when a version tag (v2.3, ...)
+# is pushed, or by hand from the Actions tab (then the zip is kept as an artifact).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Put the app and its own Python together
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = (python -c "import platform; print(platform.python_version())").Trim()
+          $short = (python -c "import sys; print('python%d%d' % sys.version_info[:2])").Trim()
+          $dest = "build\Cuewand"
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Copy-Item cuewand.py, remote.html, host.html, README.txt, DESIGN.txt, LICENSE, *.bat $dest
+          Copy-Item -Recurse logo, _vendor $dest
+          Invoke-WebRequest "https://www.python.org/ftp/python/$ver/python-$ver-embed-amd64.zip" -OutFile "$env:RUNNER_TEMP\py.zip"
+          Expand-Archive "$env:RUNNER_TEMP\py.zip" "$dest\python"
+          python -m pip install --disable-pip-version-check --no-compile --target "$dest\python\Lib\site-packages" pywin32
+          # never used by Cuewand: the Pythonwin editor, demos and tests
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$dest\python\Lib\site-packages\pythonwin"
+          Get-ChildItem "$dest\python\Lib\site-packages" -Recurse -Directory |
+            Where-Object { $_.Name -in @("Demos", "demos", "test", "tests") } |
+            Sort-Object { $_.FullName.Length } -Descending |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          # the embedded Python finds its packages and runs their .pth files
+          Set-Content -Encoding ascii "$dest\python\$short._pth" "$short.zip`r`n.`r`nLib\site-packages`r`n..`r`nimport site`r`n"
+          Write-Host "Python $ver, $short"
+          "{0:N1} MB" -f ((Get-ChildItem -Recurse $dest | Measure-Object Length -Sum).Sum / 1MB)
+
+      - name: Check that it runs on Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $py = (Resolve-Path "build\Cuewand\python\python.exe").Path
+          # the PowerPoint connection loads from the bundled Python, with nothing installed
+          & $py -c "import sys; sys.path.insert(0, r'build\Cuewand'); import cuewand; why = cuewand.ensure_powerpoint_link(pip=lambda cmd: 1); print('PowerPoint connection:', why or 'ready'); sys.exit(1 if why else 0)"
+          if ($LASTEXITCODE -ne 0) { throw "the PowerPoint connection does not load" }
+          # start it with the demo deck, ask it what a phone and the pairing page ask, stop it
+          $data = Join-Path $env:RUNNER_TEMP "cuewand-data"
+          New-Item -ItemType Directory -Force $data | Out-Null
+          $env:CUEWAND_DATA = $data
+          $p = Start-Process -FilePath $py -ArgumentList "cuewand.py", "--demo", "--no-browser", "--port", "8765" -WorkingDirectory "build\Cuewand" -PassThru -NoNewWindow
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Milliseconds 500
+            try { $ok = (Invoke-RestMethod http://127.0.0.1:8765/api/ping).cuewand } catch { }
+          }
+          if (-not $ok) { throw "Cuewand did not answer" }
+          $s = Get-Content "$data\cuewand_session.json" | ConvertFrom-Json
+          $h = @{ "X-Cuewand-Key" = $s.key }
+          $st = Invoke-RestMethod -Headers $h "http://127.0.0.1:8765/api/state?since=0"
+          if ($st.total -lt 1) { throw "no demo deck" }
+          $r = Invoke-RestMethod -Method Post -Headers $h -ContentType "application/json" -Body '{"cmd":"start","from":"first","id":"ci-start"}' http://127.0.0.1:8765/api/cmd
+          $r = Invoke-RestMethod -Method Post -Headers $h -ContentType "application/json" -Body '{"cmd":"next","id":"ci-next"}' http://127.0.0.1:8765/api/cmd
+          if ($r.press.result -ne "done") { throw "a press did not land: $($r.press.result)" }
+          foreach ($u in @("/", "/host?h=$($s.host_key)", "/favicon.ico", "/apple-touch-icon.png")) {
+            $c = (Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:8765$u").StatusCode
+            if ($c -ne 200) { throw "$u answered $c" }
+          }
+          # a second copy started by mistake does not run beside the first
+          $second = & $py "build\Cuewand\cuewand.py" --demo --no-browser --port 8770 2>&1 | Out-String
+          if ($second -notmatch "already running") { throw "a second copy started: $second" }
+          Stop-Process -Id $p.Id
+          Write-Host "Started, answered, pressed, served its pages, and refused a second copy."
+
+      - name: Run the automated checks on Windows (the two browser files need Playwright and are skipped)
+        continue-on-error: true
+        run: python tests/run_all.py
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path build\Cuewand -DestinationPath Cuewand-for-Windows.zip
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" Cuewand-for-Windows.zip --title "Cuewand ${{ github.ref_name }}" --notes-file .github/release-notes.md
+
+      - name: Keep the zip (runs started by hand)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cuewand-for-Windows
+          path: Cuewand-for-Windows.zip
