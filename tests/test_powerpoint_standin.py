@@ -165,6 +165,8 @@ class View(Strict):
 class Win(Strict):
     view_class = None
     def __init__(s, pres): s._view, s.Presentation, s.HWND = (Win.view_class or View)(pres), pres, 0x50A1E
+    def Activate(s):        # PowerPoint asks Windows for the front, which may say no
+        if GRANT["front"]: PIDS[0xF00D] = PIDS[0x50A1E]
     @property
     def View(s): COUNT["lookups"] += 1; return s._view
 class SSS(Strict):
@@ -287,6 +289,7 @@ EXPORTS.clear()
 
 r = be.command("start", {"from": "current"}); s = hub.snapshot()
 check("start from selected slide (3)", r == "done" and s["show"] == "running" and s["slide"] == 3 and s["mode"] == "powerpoint", s["slide"])
+check("a show started from the phone is brought to the front, so a clicker and the keyboard reach it", logged("slide show started from the phone: the slide show"))
 check("notes there at once, next skips the hidden slide, pictures flagged ready", s["notes"] == "R notes" and s["next"] == 5 and s["pic"] and s["nextPic"], (s["notes"], s["next"], s["pic"]))
 check("aspect from page setup", abs(s["aspect"] - 16 / 9) < 1e-3)
 be.command("first", {}); s = hub.snapshot(); check("the rewritten notes are what the show displays", s["notes"] == "Rewritten opening", repr(s["notes"]))
@@ -344,12 +347,13 @@ k0 = len(calls["keys"]); r = be.zoom("fit")
 check("Fit: as many minuses as pluses, no more", r == "done" and calls["keys"][k0:] == [(0x6D, 0), (0x6D, 2)] * 2 and be.zoom_level == 0, calls["keys"][k0:])
 m0 = len(calls["mouse"]); r = be.pan("down", 0.5, 0.5)
 check("not zoomed in: no mouse press (it would be a click, and move the show on)", r == "not-zoomed" and calls["mouse"][m0:] == [])
+zoom_keys = lambda k0: [k for k in calls["keys"][k0:] if k[0] in (0x6B, 0x6D)]
 PIDS[0xF00D] = 777; GRANT["front"] = False; k0 = len(calls["keys"]); r = be.zoom("in")
-check("another program in front, and Windows will not hand the front over: no key is sent", r == "not-front" and len(calls["keys"]) == k0, r)
-GRANT["front"] = True; r = be.zoom("in")
-check("when Windows does hand it over, the zoom goes to the show", r == "done" and be.zoom_level == 1, r)
+check("another program in front, and Windows will not hand the front over: Cuewand asks (Alt, let go), then sends no zoom key", r == "not-front" and zoom_keys(k0) == [] and calls["keys"][k0:] == [(0x12, 0), (0x12, 2)], (r, calls["keys"][k0:]))
+GRANT["front"] = True; k0 = len(calls["keys"]); r = be.zoom("in")
+check("another program in front: PowerPoint brings the show forward, and the zoom goes to it", r == "done" and be.zoom_level == 1 and zoom_keys(k0) == [(0x6B, 0), (0x6B, 2)] and PIDS[0xF00D] == PIDS[0x50A1E], (r, calls["keys"][k0:]))
 FRONT["class"] = "PPTFrameClass"; k0 = len(calls["keys"]); r = be.zoom("in")
-check("PowerPoint's editor in front: no key (a plus would land in the deck)", r == "not-front" and len(calls["keys"]) == k0, r)
+check("PowerPoint's own editor in front: no zoom key (a plus would land in the deck)", r == "not-front" and zoom_keys(k0) == [], (r, calls["keys"][k0:]))
 FRONT["class"] = "screenClass"; be.zoom("fit"); FRONT["class"] = "PPTFrameClass"
 be.command("goto", {"n": 99}); s = hub.snapshot(); check("goto out of range ignored", s["slide"] == 2)
 

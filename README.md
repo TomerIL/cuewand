@@ -59,7 +59,7 @@ The pairing page and its buttons answer only the laptop itself. On "Same Wi-Fi" 
 
 ## Status
 
-Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 664 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.exe** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
+Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 666 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.exe** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
 
 ```
 python tests/run_all.py

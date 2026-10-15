@@ -865,7 +865,7 @@ PPT_EDITOR_CLASS = "PPTFrameClass"   # PowerPoint's editing window (not the slid
 # Zoom on the big screen (a trial): PowerPoint's own slide-show zoom, reached with the
 # + and - keys of the number pad. Minus at normal size would open PowerPoint's view of
 # all slides in front of the room, so Cuewand only ever sends as many minuses as pluses.
-VK_ZOOM_IN, VK_ZOOM_OUT = 0x6B, 0x6D
+VK_ZOOM_IN, VK_ZOOM_OUT, VK_MENU = 0x6B, 0x6D, 0x12
 ZOOM_MAX = 6
 MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
 ZOOM_ACTIONS = ("in", "out", "fit")
@@ -1935,6 +1935,10 @@ class WindowsBackend:
                     win.View.GotoSlide(start_at)
                 except Exception as e:
                     self._note("could not jump to the selected slide", e)
+            try:    # so that a clicker, the keyboard and the zoom reach the show
+                self._show_in_front(win, "slide show started from the phone")
+            except Exception as e:
+                self._note("bringing the new slide show forward failed", e)
             return "done"
         vk = VK.get(name)
         if not vk:
@@ -2075,27 +2079,44 @@ class WindowsBackend:
             return 0
         return int(pid.value)
 
-    def _show_in_front(self, win) -> bool:
+    def _show_in_front(self, win, why: str = "") -> bool:
         """Keys go to the window in front: it must be the slide show (or another
-        window of PowerPoint's own, such as Presenter View), never the editor."""
+        window of PowerPoint's own, such as Presenter View), never the editor.
+        A slide show started from the phone often opens behind the window that
+        was in front (Cuewand's own, say), so it is brought forward first."""
         try:
             hwnd = int(win.HWND)
         except Exception:
             hwnd = 0
-        if not hwnd or self._editor_in_front():
+        if not hwnd:
             return False
 
         def ours():
             front = self.user32.GetForegroundWindow() or 0
-            return bool(front) and (front == hwnd or self._pid(front) == self._pid(hwnd) != 0)
+            return (bool(front) and not self._editor_in_front()
+                    and (front == hwnd or self._pid(front) == self._pid(hwnd) != 0))
         if ours():
             return True
         try:
-            self.user32.SetForegroundWindow(hwnd)     # Windows may refuse this
+            win.Activate()                          # PowerPoint's own way
+        except Exception as e:
+            self._note("could not activate the slide show window", e)
+        time.sleep(0.05)
+        if not ours():
+            # Windows hands the front to a program only just after a key press; Alt
+            # pressed and let go on its own does nothing in a slide show.
+            try:
+                self.user32.keybd_event(VK_MENU, 0, 0, 0)
+                self.user32.SetForegroundWindow(hwnd)
+            except Exception as e:
+                self._note("could not bring the slide show to the front", e)
+            finally:
+                self.user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
             time.sleep(0.05)
-        except Exception:
-            pass
-        return ours()
+        got = ours()
+        log.info("%sthe slide show %s to the front", why and why + ": ",
+                 "was brought" if got else "could not be brought")
+        return got
 
     @staticmethod
     def _zoom_pct(view):
@@ -2109,8 +2130,7 @@ class WindowsBackend:
         if show is None:
             return "no-show"
         view = show[2]
-        if not self._show_in_front(show[1]):
-            log.info("zoom %s: the slide show is not the window in front", action)
+        if not self._show_in_front(show[1], "zoom " + action):
             return "not-front"
         level = self.zoom_level
         if action == "in":

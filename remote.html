@@ -508,7 +508,7 @@ body.banded #toast{top:calc(124px + env(safe-area-inset-top))}
 @media (max-width:340px){ #pips i{width:6px;height:6px} .pill{padding:0 11px;min-width:56px} }
 @media (max-width:300px){ #barrow{padding:6px 8px 8px;gap:6px} #tools{gap:6px} .pill{min-width:44px;padding:0 10px} #pads{grid-template-columns:1fr 1.6fr;gap:8px;margin-left:8px;margin-right:8px} #app.left #pads{grid-template-columns:1.6fr 1fr} .band{padding:6px 8px} .band button{padding:0 14px} #cue{padding-left:10px;padding-right:10px} }
 
-/* less motion: the phone's own setting, or chosen in Setup */
+/* less motion: the phone's own setting */
 html.still .sheet,html.still #shade,html.still #snack,html.still #toast,html.still #stage,html.still #pads{transition:none}
 html.still #ripple.go,html.still .nudge,html.still #rehbar i{animation:none}
 html.still #pads.fx-build #surface #fx,html.still #pads.fx-slide #surface #fx,html.still #pads.fx-last #surface #fx,html.still #pads.fx-fail #surface #fx,html.still #pads.fx-none #surface #fx{animation:fxsteady var(--slow) steps(1)}
@@ -720,7 +720,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
     <p class="fine" id="t-how"></p>
     </div>
 
-    <button class="line nav" id="su-more" aria-expanded="false" aria-controls="su-rest"><span>More options<small>Your name, text size, what this phone shows, left-handed, motion</small></span></button>
+    <button class="line nav" id="su-more" aria-expanded="false" aria-controls="su-rest"><span>More options<small>Your name, text size, what this phone shows, left-handed, zoom</small></span></button>
     <div id="su-rest" hidden>
     <h2 class="grp">This phone</h2>
     <div class="field" style="border-top:0;padding-top:0">
@@ -736,12 +736,10 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
       <button class="line" id="p-next" role="switch"><span>The next slide<small></small></span><i class="sw"></i></button>
     </div>
 
-    <h2 class="grp">Buttons and motion</h2>
+    <h2 class="grp">Buttons</h2>
     <div>
       <button class="line" id="p-left" role="switch"><span>Left-handed<small></small></span><i class="sw"></i></button>
       <button class="line" id="p-swipe" role="switch"><span>Swipe as well as press<small></small></span><i class="sw"></i></button>
-      <div class="line" style="flex-wrap:wrap"><span id="mo-l">Motion<small id="mo-t"></small></span>
-        <div class="chips" role="group" aria-labelledby="mo-l"><button data-motion="phone">Like this phone</button><button data-motion="less">Less</button><button data-motion="full">Full</button></div></div>
     </div>
 
     <h2 class="grp">Slide pictures</h2>
@@ -1907,9 +1905,10 @@ async function zoomCmd(action) {
     const d = await api('/api/zoom', {action, cid: CID}, 9000);
     if (d && d.v !== undefined) apply(d);
     const r = d && d.zoomed;
-    if (r === 'not-front') toast('Click the slide show on the laptop once, then try again: the zoom goes to the window in front.');
+    if (r === 'not-front') toast('Windows would not bring the slide show to the front on the laptop. Click the slide show there once, then try again.');
     else if (r === 'max') toast('That is as far in as Cuewand zooms.', true);
     else if (r === 'busy' || r === 'failed' || r === 'pending') toast('PowerPoint did not take the zoom. Try again.');
+    else if (r === 'no-show') toast('There is no slide show running to zoom.');
   } catch (e) { toast('The zoom did not reach the computer. Try again.'); }
 }
 $('z-in').addEventListener('click', () => zoomCmd('in'));
@@ -1977,6 +1976,7 @@ document.querySelectorAll('.line[role=switch]').forEach(btn => {
 /* What this phone shows, and how its buttons behave, is kept on this phone. */
 let prefs = {next: true, left: false, swipe: false, motion: 'phone'};
 try { Object.assign(prefs, JSON.parse(store.get('cuewand.prefs') || '{}')); } catch (e) {}
+prefs.motion = 'phone';     // motion follows the phone's own setting (2.6 took away the choice in Setup)
 const PREF_TEXT = {
   pic: () => showPic() ? 'On. Hold it to point with the laser.' + (prefs.pic === undefined ? ' (Chosen for this screen and text size.)' : '')
                        : 'Off: more room for notes, no laser while you talk.' + (prefs.pic === undefined ? ' (Chosen for this screen and text size.)' : ''),
@@ -1991,8 +1991,6 @@ function drawPrefs() {
   sw($('p-pic'), showPic(), PREF_TEXT.pic()); sw($('p-next'), prefs.next, PREF_TEXT.next());
   sw($('p-left'), prefs.left, PREF_TEXT.left()); sw($('p-swipe'), prefs.swipe, PREF_TEXT.swipe());
   sw($('p-zoom'), !!prefs.zoom, PREF_TEXT.zoom());
-  document.querySelectorAll('[data-motion]').forEach(b => { const on = b.dataset.motion === prefs.motion; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
-  setText($('mo-t'), prefs.motion === 'phone' ? `Like this phone’s own setting (now: ${osStill.matches ? 'less' : 'full'} motion).` : prefs.motion === 'less' ? 'Less: no sliding, rippling or blinking; outcomes show steady.' : 'Full.');
 }
 const savePrefs = () => store.set('cuewand.prefs', JSON.stringify(prefs));
 $('p-pic').addEventListener('click', () => { prefs.pic = !showPic(); savePrefs(); drawPrefs(); if (S) { shownImg = '\u0000'; render(S); } });
@@ -2002,7 +2000,6 @@ $('p-pic').addEventListener('click', () => { prefs.pic = !showPic(); savePrefs()
 const osStill = matchMedia('(prefers-reduced-motion: reduce)');
 function motion() { document.documentElement.classList.toggle('still', prefs.motion === 'less' || (prefs.motion === 'phone' && osStill.matches)); drawPrefs(); }
 try { osStill.addEventListener('change', motion); } catch (e) {}
-document.querySelectorAll('[data-motion]').forEach(b => b.addEventListener('click', () => { prefs.motion = b.dataset.motion; savePrefs(); motion(); }));
 
 /* Text size: in Setup, and mid-talk from the Menu as a bar that leaves the notes in view. */
 $('m-smaller').addEventListener('click', () => { setTs(ts - .1, true); drawPrefs(); });

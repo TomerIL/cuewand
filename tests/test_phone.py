@@ -907,10 +907,11 @@ def part_v23(b):
     check("the Next button's spoken name says minutes, not ticking seconds", re.fullmatch(r"Next, \d+ minutes? left", ph.pg.get_attribute("#surface", "aria-label") or "") is not None, ph.pg.get_attribute("#surface", "aria-label"))
     ph.pg.click("#b-menu"); ph.wait(300); ph.pg.click("#m-setup"); ph.wait(300)
     check("switches: the explanation is their description, not part of their name", ph.js("document.getElementById(document.getElementById('p-left').getAttribute('aria-describedby')).tagName") == "SMALL" and ph.js("document.getElementById(document.getElementById('p-left').getAttribute('aria-labelledby')).textContent") == "Left-handed")
-    ph.pg.click("[data-motion=less]"); ph.wait(150)
-    check("Motion › Less: no rippling or sliding", "still" in ph.cls("html") and ph.js("getComputedStyle(document.querySelector('.sheet')).transitionDuration") == "0s")
-    ph.pg.click("[data-motion=phone]"); ph.wait(150)
-    check("and back to the phone's own setting", "still" not in ph.cls("html"))
+    check("Setup has no Motion choice: motion follows the phone", ph.js("document.querySelectorAll('[data-motion]').length") == 0 and "still" not in ph.cls("html"))
+    ph.pg.emulate_media(reduced_motion="reduce"); ph.wait(200)
+    check("the phone set to reduce motion: no rippling or sliding", "still" in ph.cls("html") and ph.js("getComputedStyle(document.querySelector('.sheet')).transitionDuration") == "0s")
+    ph.pg.emulate_media(reduced_motion="no-preference"); ph.wait(200)
+    check("and back when the phone is", "still" not in ph.cls("html"))
     ph.close()
 
 
