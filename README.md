@@ -26,19 +26,19 @@ Nothing is installed on the phone: it scans a code and a web page opens.</p>
 ## What you need
 
 - A **Windows laptop with PowerPoint** (it has run on Windows 11 with PowerPoint 16). There is no Mac version.
-- **Nothing else**, if you download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest): it carries its own Python. (Running from the source code instead needs Python 3.8 or newer from [python.org](https://www.python.org/downloads/); on its first start Cuewand then installs pywin32, which is what talks to PowerPoint.)
+- **Nothing else**, if you download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest): it carries its own Python, and everything in it that Windows runs is signed, so Windows Smart App Control lets it start. (Running from the source code instead needs Python 3.8 or newer from [python.org](https://www.python.org/downloads/), and nothing else.)
 - **A phone with a browser** on the same Wi-Fi as the laptop, or the phone's own hotspot, or the optional internet link.
 
 ## Start
 
 1. Download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest) and extract it (right-click, Extract All).
-2. Double-click **Start Cuewand.bat**. A page opens in your browser with a large code.
+2. Double-click **Start Cuewand.exe**. A page opens in your browser with a large code.
 3. Open your deck in PowerPoint and scan the code with the phone's camera, in either order. There is no file to choose in Cuewand: it finds the deck open in PowerPoint by itself, and the page on the laptop says "Found your deck".
 4. On the phone, Setup asks for the talk length and the alerts. One tap runs a ready check; the button under its answer starts the slide show.
 
 **Windows firewall:** when Windows asks about Python, tick **Public as well as Private**, then Allow. Hotel, venue and hotspot networks count as Public.
 
-**Before an important talk**, open your deck and double-click **Test Cuewand.bat**: it presses through the whole deck and checks that every press landed exactly once.
+**Before an important talk**, open your deck and double-click **Test Cuewand.exe**: it presses through the whole deck and checks that every press landed exactly once.
 
 The full manual, with every screen, option and what to do when something goes wrong, is [README.txt](README.txt).
 
@@ -58,7 +58,7 @@ The pairing page and its buttons answer only the laptop itself. On "Same Wi-Fi" 
 
 ## Status
 
-Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 605 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.bat** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
+Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 608 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.exe** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
 
 ```
 python tests/run_all.py
@@ -70,7 +70,7 @@ runs the checks on any computer (the two browser test files need [Playwright](ht
 
 Made by [Tomer Yona](https://www.tomeryona.com). Built with Claude, Anthropic's AI model.
 
-The pairing codes are drawn by [segno](https://github.com/heuer/segno) (BSD licence), which travels in `_vendor/`. Cuewand-for-Windows.zip carries [Python](https://www.python.org) and [pywin32](https://github.com/mhammond/pywin32) (both PSF licence); running from source installs pywin32 from PyPI. [cloudflared](https://github.com/cloudflare/cloudflared) (Apache 2.0) is downloaded only when you ask for the internet link.
+The pairing codes are drawn by [segno](https://github.com/heuer/segno) (BSD licence), and PowerPoint is reached through [comtypes](https://github.com/enthought/comtypes) (MIT licence); both travel in `_vendor/`. Cuewand-for-Windows.zip carries [Python](https://www.python.org) (PSF licence); its three `.exe` files are copies of Python's own `python.exe`, signed by the Python Software Foundation, which start Cuewand through `windows/sitecustomize.py`. [cloudflared](https://github.com/cloudflare/cloudflared) (Apache 2.0) is downloaded only when you ask for the internet link.
 
 Cuewand is not affiliated with or endorsed by Microsoft, Apple, Google or Cloudflare. PowerPoint and Windows are trademarks of Microsoft.
 

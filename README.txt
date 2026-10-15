@@ -1,4 +1,4 @@
-Cuewand 2.4 - run your slides from your phone
+Cuewand 2.5 - run your slides from your phone
 =============================================
 
 Your phone becomes the remote for PowerPoint: Next and Back, your speaker
@@ -11,8 +11,8 @@ What it is for, and what it is not
 Cuewand is for your own Windows laptop with PowerPoint, set up before the
 talk. That is the only place it has run.
 
-It is not for a lectern computer you meet five minutes before you speak (it
-needs Python on the computer), and there is no Mac version.
+It is not for a lectern computer you meet five minutes before you speak,
+and there is no Mac version.
 
 Keep your clicker in your pocket. The two work side by side: a press on the
 clicker shows up on the phone, and the clock starts with the first advance
@@ -24,13 +24,14 @@ rely on Cuewand in front of a room.
 
 Start
 -----
-1. Unzip this folder anywhere on the computer that shows the slides.
-2. Double-click "Start Cuewand.bat".
-   Cuewand-for-Windows.zip carries its own Python: nothing to install.
-   Any other download needs Python 3.8 or newer (python.org), and the very
-   first time it installs one Python package, pywin32, which is what talks
-   to PowerPoint; that needs the internet once. The window must then say
-   "PowerPoint connection: ready."
+1. Unzip this folder anywhere on the computer that shows the slides
+   (right-click the zip, Extract All).
+2. Double-click "Start Cuewand.exe". Nothing is installed: it carries its
+   own Python, and everything in it that Windows runs is signed, so Smart
+   App Control lets it start. The window must say "PowerPoint connection:
+   ready."
+   Running from the source code instead (not the zip)? You need Python 3.8
+   or newer from python.org; double-click "Start Cuewand.bat" there.
 3. A page opens in your browser with a large code. Point the phone's camera
    at it. No camera, or it will not scan? The page also shows a short
    address and a 6-digit number to type on the phone.
@@ -53,7 +54,7 @@ you present; close it to stop.
 
 Before an important talk
 ------------------------
-Prove it on your deck   Open the deck, then double-click "Test Cuewand.bat".
+Prove it on your deck   Open the deck, then double-click "Test Cuewand.exe".
                         It makes the pictures, starts the slide show, walks
                         the whole deck forwards and backwards about 200
                         presses, and checks after every press that the show
@@ -68,7 +69,7 @@ Prove it on your deck   Open the deck, then double-click "Test Cuewand.bat".
                         runs (a few minutes).
 
 Internet link, ahead    If you may need the internet link at the venue,
-of time                 double-click "Get the internet link ready.bat" at
+of time                 double-click "Get the internet link ready.exe" at
                         home. It downloads the 55 MB program then, not in
                         front of the room.
 
@@ -376,15 +377,12 @@ you do not trust, use your phone's hotspot or the internet link.
 What Cuewand sends, and to whom
 -------------------------------
 Nothing to the author, and nothing to anyone else unless you use one of
-the three things below. There are no accounts, no analytics and no
+the two things below. There are no accounts, no analytics and no
 tracking.
 - Your notes, slide pictures and presses travel only between the laptop
   and your phone: over your Wi-Fi or hotspot, or, with the internet link,
   through Cloudflare's servers, which relay it encrypted on the way.
-- On its first run on Windows, Cuewand downloads one Python package,
-  pywin32, from PyPI (the Python package index). Cuewand-for-Windows.zip
-  carries it already, and downloads nothing.
-- "Get the internet link ready.bat" downloads Cloudflare's program,
+- "Get the internet link ready.exe" downloads Cloudflare's program,
   cloudflared, from Cloudflare's own GitHub page. The internet link then
   uses Cloudflare's free "quick tunnels", which Cloudflare says are meant
   for testing and development, with no uptime guarantee. For an
@@ -427,7 +425,7 @@ What has been tried, and what has not
 -------------------------------------
 Tried: real PowerPoint 16 on Windows 11 by one presenter. Versions 1.3 to
 1.6: connecting, notes on every slide and pictures made ahead worked.
-Version 2.1, "Test Cuewand.bat" on a 26-slide deck with large GIFs: no press
+Version 2.1, "Test Cuewand" on a 26-slide deck with large GIFs: no press
 ever counted twice, and both safeguards held. It also showed two things
 2.2 changed, which are not yet confirmed on that computer:
 - Cuewand's own re-reading of the speaker notes during the show kept
@@ -439,13 +437,19 @@ ever counted twice, and both safeguards held. It also showed two things
   quick press until the slide's transition is over, sends it once more if
   it was swallowed, and says "Nothing moved" if it still was.
 Everything else since 1.6 has been run against a stand-in for PowerPoint
-and in phone- and tablet-sized desktop browsers: 605 automated checks, in
+and in phone- and tablet-sized desktop browsers: 608 automated checks, in
 the tests folder, plus an automated accessibility audit (axe-core) of every
 screen. A stand-in written by the author cannot disagree with the author
-about how PowerPoint behaves. "Test Cuewand.bat" is the real test: run it on
+about how PowerPoint behaves. "Test Cuewand.exe" is the real test: run it on
 your deck.
 
 Not tried at all:
+- 2.5 on real PowerPoint. It talks to PowerPoint through comtypes instead
+  of pywin32, so that every program file Windows runs is signed. The
+  Windows build checks that comtypes drives a real COM object the same
+  way, but PowerPoint itself is not on that machine: run "Test Cuewand.exe"
+  on your deck before you rely on 2.5.
+- Windows Smart App Control with the 2.5 download (2.4 was blocked by it)
 - any iPhone, and any real Android phone since 1.6
 - whether the silent video really keeps a given phone awake on the Same
   Wi-Fi code (the check on the phone says which method is in use; watch it
@@ -456,7 +460,7 @@ Not tried at all:
   now records what is needed to find out why
 - PowerPoint's Presenter View, two screens, a deck on OneDrive with
   AutoSave, PowerPoint started as administrator
-- a real screen reader: 2.4 has not yet passed the release gate below.
+- a real screen reader: 2.5 has not yet passed the release gate below.
 - PowerPoint sections and [click] notes on a real deck (the stand-in reads
   them the way PowerPoint documents them)
 
@@ -474,14 +478,14 @@ version and the date:
    comes back to where it was.
 4. The search field can be typed in, and a found slide opened.
 5. Voice Access ("tap Next") and Switch Access press Next once.
-2.4 has not been through this yet.
+2.5 has not been through this yet.
 
 
 Options
 -------
 python cuewand.py --demo        a built-in deck, no PowerPoint needed
-python cuewand.py --selftest    what "Test Cuewand.bat" runs (--presses 500 for more)
-python cuewand.py --prepare     what "Get the internet link ready.bat" runs
+python cuewand.py --selftest    what "Test Cuewand" runs (--presses 500 for more)
+python cuewand.py --prepare     what "Get the internet link ready" runs
 python cuewand.py --internet    turn the internet link on at start
 python cuewand.py --new-codes   forget the saved session
 python cuewand.py --port 9000   use another port
@@ -495,10 +499,12 @@ Credits
 Made by Tomer Yona: www.tomeryona.com, github.com/TomerIL.
 Built with Claude, Anthropic's AI model.
 The logo and its icons are in the logo folder.
-The pairing codes are drawn by segno (BSD licence, by Lars Heuer), which
-travels in the _vendor folder. Cuewand-for-Windows.zip also carries
-Python and pywin32 (both Python Software Foundation licence), in the
-python folder; other downloads install pywin32 from PyPI. Cloudflared
+The pairing codes are drawn by segno (BSD licence, by Lars Heuer), and
+PowerPoint is reached through comtypes (MIT licence, by Thomas Heller and
+its contributors); both travel in the _vendor folder. Cuewand-for-Windows.zip
+also carries Python (Python Software Foundation licence) in app\python;
+its three .exe files are copies of Python's own python.exe, as signed by
+the Python Software Foundation. Cloudflared
 (Apache 2.0 licence) is downloaded from Cloudflare only when you ask for
 the internet link, and is not included.
 Cuewand is not affiliated with or endorsed by Microsoft, Apple, Google or

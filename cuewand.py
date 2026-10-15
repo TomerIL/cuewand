@@ -46,7 +46,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 APP = "Cuewand"
-VERSION = "2.4"
+VERSION = "2.5"
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The two small libraries Cuewand uses travel with it: segno (draws the pairing
 # code) and comtypes (talks to PowerPoint). Nothing is installed.
