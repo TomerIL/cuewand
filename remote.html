@@ -158,6 +158,11 @@ h1,h2,h3{margin:0}
 #pic:has(#hint) #allsteps{display:none}
 @keyframes hint{0%,80%{opacity:1}100%{opacity:0}}
 #nextbox{flex:none;margin:0}
+/* zoom on the big screen (a trial): + and - over the slide picture */
+#zoombar{position:absolute;top:6px;right:6px;display:flex;gap:6px;z-index:2}
+#zoombar[hidden]{display:none}
+#zoombar button{min-width:44px;height:44px;padding:0 10px;border-radius:var(--r1);background:rgba(0,0,0,.78);color:#fff;font-size:var(--t17);font-weight:700;border:1px solid rgba(255,255,255,.35)}
+#zoomtag{left:6px;top:6px}
 #nextimg{width:100%;aspect-ratio:16/9;object-fit:contain;background:var(--black);border-radius:var(--r1);border:1px solid var(--outline);display:block}
 #nextbox figcaption{font-size:var(--t13);color:var(--text-dim);margin-top:3px;text-align:center}
 #app.no-pic #stage{display:none}     /* more room for notes */
@@ -529,6 +534,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
     </div>
   </header>
   <div id="rehbar" class="band" hidden><span class="what"><i aria-hidden="true"></i><span id="reh-t">Rehearsing</span></span><button id="reh-stop">Stop</button></div>
+  <div id="waitbar" class="band" hidden><span class="what"><span id="wait-t">The clock starts with your first Next</span></span><button id="wait-go">Start it now</button></div>
   <div id="folbar" class="band" hidden><span class="what"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h9M10 6l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="fol-t">Following</span></span><button id="fol-take">Take</button></div>
 
   <section id="rest" aria-label="Slide show not started">
@@ -549,6 +555,8 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
       <div id="veil" hidden></div>
       <span id="allsteps" class="tag" hidden>All steps shown</span>
       <div id="dot" hidden></div>
+      <span id="zoomtag" class="tag" hidden>Zoomed in: hold and drag to move</span>
+      <div id="zoombar" hidden><button id="z-out" aria-label="Zoom out on the big screen">−</button><button id="z-in" aria-label="Zoom in on the big screen">+</button><button id="z-fit" hidden aria-label="Back to the whole slide on the big screen">Fit</button></div>
     </div>
     <figure id="nextbox" hidden><img id="nextimg" alt=""><figcaption>Next</figcaption></figure>
   </div>
@@ -604,6 +612,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
 <section class="sheet" id="s-menu" role="dialog" aria-modal="true" aria-labelledby="sm-h" inert>
   <header><h2 id="sm-h">Menu</h2><button class="x" data-close>Close</button></header>
   <div class="body">
+    <div id="m-clock">
     <h3 class="grp first">The clock</h3>
     <div id="readout" class="num">15:00</div>
     <div id="readsub"></div>
@@ -614,6 +623,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
     <div class="trio" id="clock-adj">
       <button class="big alt num" id="t-less" aria-label="One minute less on the clock">−1 min</button>
       <button class="big alt num" id="t-more" aria-label="One minute more on the clock">+1 min</button>
+    </div>
     </div>
     <button class="big stop" id="m-stop" hidden>Stop the rehearsal</button>
 
@@ -630,6 +640,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
       <p class="fine">The laptop’s own clicker and keyboard always work, whichever phone has the slides.</p>
     </div>
 
+    <div id="m-reh">
     <h3 class="grp">Rehearsal</h3>
     <p id="r-text"></p>
     <div>
@@ -637,11 +648,12 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
       <button class="line nav" id="r-recap"><span>Where the time went<small>Each slide’s time, beside your rehearsal.</small></span></button>
     </div>
     <button class="line" id="r-forget" style="margin-top:12px" hidden><span id="r-forget-t">Forget this deck’s rehearsal</span></button>
+    </div>
 
     <h3 class="grp">This phone</h3>
     <div>
       <button class="line nav" id="m-size"><span>Text size<small id="m-size-t"></small></span></button>
-      <button class="line nav" id="m-setup"><span>Setup<small>Talk length, alerts, your name, what this phone shows</small></span></button>
+      <button class="line nav" id="m-setup"><span>Setup<small>The clock, talk length, alerts, your name, what this phone shows</small></span></button>
       <button class="line nav" id="m-check"><span>Run the ready check again</span></button>
     </div>
 
@@ -690,6 +702,15 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
       <small>Two phones are connected. Your co-presenter sees this name when you pass the slides.</small>
     </div>
 
+    <h2 class="grp" id="su-l0">When does the clock start?</h2>
+    <div class="chips" id="t-starts" role="group" aria-labelledby="su-l0">
+      <button data-starts="show">When the slide show starts</button>
+      <button data-starts="next">With my first Next</button>
+      <button data-starts="off">No clock</button>
+    </div>
+    <p class="fine" id="t-starts-how"></p>
+
+    <div id="su-clock">
     <h2 class="grp" id="su-l1">Talk length, in minutes</h2>
     <div class="chips" id="t-len" role="group" aria-labelledby="su-l1"></div>
     <div class="step" style="margin-top:8px"><button id="t-minus" aria-label="One minute less">−1</button><button id="t-plus" aria-label="One minute more">+1</button><span id="su-len" class="num"></span></div>
@@ -697,7 +718,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
     <h2 class="grp" id="su-l2">Alert me when this much time is left</h2>
     <div class="chips" id="t-marks" role="group" aria-labelledby="su-l2"></div>
     <p class="fine" id="t-how"></p>
-    <button class="line" id="t-auto" role="switch" style="margin-top:14px"><span>Start the clock with my first Next<small></small></span><i class="sw"></i></button>
+    </div>
 
     <button class="line nav" id="su-more" aria-expanded="false" aria-controls="su-rest"><span>More options<small>Your name, text size, what this phone shows, left-handed, motion</small></span></button>
     <div id="su-rest" hidden>
@@ -726,6 +747,7 @@ html.still #flash.on{animation:flashstill 2.4s steps(1)}
     <h2 class="grp">Slide pictures</h2>
     <div>
       <button class="line" id="m-pics"><span>Make the slide pictures again<small id="m-pics-t"></small></span></button>
+      <button class="line" id="p-zoom" role="switch"><span>Zoom on the big screen (trial)<small></small></span><i class="sw"></i></button>
     </div>
     </div>
   </div>
@@ -1468,8 +1490,16 @@ function render(before) {
     $('rest-bar').style.width = total ? (100 * (got + failed) / total) + '%' : '0';
     rs.textContent = preparing ? 'Start without waiting' : 'Start the slide show';     // while pictures are being made, waiting is the main thing to do
     rs.classList.toggle('go', !preparing); rs.classList.toggle('alt', preparing);
+    $('rest-reh').hidden = noClock();
+    if (T && T.starts === 'show') $('rest-p').textContent += ' The clock starts with the slide show.';
+    else if (T && T.starts === 'next') $('rest-p').textContent += ' The clock starts with your first Next.';
   }
 
+  const zoomable = !!prefs.zoom && live && !s.black && showPic() && (s.mode === 'powerpoint' || s.mode === 'demo') && !following();
+  $('zoombar').hidden = !zoomable;
+  $('z-fit').hidden = !(zoomable && s.zoom > 0); $('z-out').disabled = !(s.zoom > 0);
+  $('zoomtag').hidden = !(zoomable && s.zoom > 0);
+  if (zoomable && s.zoom > 0 && $('hint')) $('hint').remove();     // zoomed in, holding moves the slide, not the laser
   const imgKey = live && s.pic && showPic() ? slideUrl(s.slide) : '';
   if (imgKey !== shownImg) { shownImg = imgKey; swap($('curimg'), imgKey); }
   $('curimg').alt = live ? `Slide ${s.slide}${s.title ? ': ' + s.title : ''}` : '';
@@ -1565,7 +1595,12 @@ function drawBands() {
   }
   const showReh = reh && !fol;
   if ($('rehbar').hidden === showReh) { $('rehbar').hidden = !showReh; }
-  const any = fol || showReh;
+  // the clock is not running in a show it should be timing: say so, and offer to start it now
+  // (not on a tiny screen, where the notes need the room: there the Next button says it, and the Menu starts it)
+  const waiting = !!T && !fol && !reh && !noClock() && !!S && S.show === 'running' && !T.running && !(T.elapsed > 0) && !tinyScreen();
+  if ($('waitbar').hidden === waiting) $('waitbar').hidden = !waiting;
+  if (waiting) setText($('wait-t'), T.starts === 'next' ? 'The clock starts with your first Next' : 'The clock is not running');
+  const any = fol || showReh || waiting;
   if (document.body.classList.contains('banded') !== any) {
     document.body.classList.toggle('banded', any);
     $('app').classList.toggle('no-pic', !showPic() && !!S && S.show === 'running' && !S.black);
@@ -1855,24 +1890,59 @@ async function pump() {
   L.busy = false; L.last = performance.now();
   if (L.dirty) pump();
 }
+const zoomedIn = () => !!prefs.zoom && !!S && S.show === 'running' && S.zoom > 0;
+let panChain = Promise.resolve();
+function panSend(phase) {
+  const body = {phase, x: L.x, y: L.y, cid: CID};
+  L.panBusy = true; L.dirty = false; L.last = performance.now();
+  panChain = panChain.then(() => api('/api/pan', body, 3000).catch(() => {})).then(() => {
+    L.panBusy = false;
+    if (L.pan && L.dirty) panSend('move');
+  });
+}
+async function zoomCmd(action) {
+  if (following()) { explainFollow(); return; }
+  buzz(8);
+  try {
+    const d = await api('/api/zoom', {action, cid: CID}, 9000);
+    if (d && d.v !== undefined) apply(d);
+    const r = d && d.zoomed;
+    if (r === 'not-front') toast('Click the slide show on the laptop once, then try again: the zoom goes to the window in front.');
+    else if (r === 'max') toast('That is as far in as Cuewand zooms.', true);
+    else if (r === 'busy' || r === 'failed' || r === 'pending') toast('PowerPoint did not take the zoom. Try again.');
+  } catch (e) { toast('The zoom did not reach the computer. Try again.'); }
+}
+$('z-in').addEventListener('click', () => zoomCmd('in'));
+$('z-out').addEventListener('click', () => zoomCmd('out'));
+$('z-fit').addEventListener('click', () => zoomCmd('fit'));
 picEl.addEventListener('pointerdown', e => {
+  if (e.target.closest('#zoombar')) return;      // its own buttons
   if (!canPoint()) { if (following()) explainFollow(); return; }
   e.preventDefault(); fingerDown = true;
   try { picEl.setPointerCapture(e.pointerId); } catch (err) {}
   aim(e); L.dirty = false;
   clearTimeout(L.hold);
   L.hold = setTimeout(() => {            // a brush or a resting thumb does nothing; a held finger points
+    if (zoomedIn()) { L.pan = true; panSend('down'); buzz(8); return; }   // zoomed in: the finger moves the slide
     L.on = true; $('dot').hidden = false; L.dirty = true; pump(); buzz(8);
     const h = $('hint'); if (h) h.remove();
   }, 300);
 });
-picEl.addEventListener('pointermove', e => { if (L.on) { aim(e); pump(); } else if (L.hold) { aim(e); L.dirty = false; } });
-const lift = () => { fingerDown = false; clearTimeout(L.hold); L.hold = 0; if (L.on) { L.on = false; L.dirty = true; $('dot').hidden = true; pump(); } };
+picEl.addEventListener('pointermove', e => {
+  if (L.pan) { aim(e); $('dot').hidden = true; if (!L.panBusy) panSend('move'); }
+  else if (L.on) { aim(e); pump(); } else if (L.hold) { aim(e); L.dirty = false; }
+});
+const lift = () => {
+  fingerDown = false; clearTimeout(L.hold); L.hold = 0;
+  if (L.pan) { L.pan = false; panSend('up'); }
+  if (L.on) { L.on = false; L.dirty = true; $('dot').hidden = true; pump(); }
+};
 picEl.addEventListener('pointerup', lift);
 picEl.addEventListener('pointercancel', lift);
-picEl.addEventListener('touchstart', e => e.preventDefault(), {passive: false});
+picEl.addEventListener('touchstart', e => { if (!e.target.closest('#zoombar')) e.preventDefault(); }, {passive: false});
 setInterval(() => {           // keep-alive while the finger rests; the computer hides the dot if we go quiet
   if (L.on && !L.busy && performance.now() - L.last > 900) { L.dirty = true; pump(); }
+  if (L.pan && !L.panBusy && performance.now() - L.last > 900) panSend('move');
 }, 300);
 
 /* ---------- sheets ---------- */
@@ -1913,17 +1983,20 @@ const PREF_TEXT = {
   next: () => prefs.next ? 'On: a small picture of what comes next.' : 'Off.',
   left: () => prefs.left ? 'On: Next is on the left, Back on the right.' : 'Off: Back is on the left, Next on the right.',
   swipe: () => prefs.swipe ? 'On: swiping right on the buttons is Next, left is Back.' : 'Off: a press counts for the button you touched, even if your thumb slides.',
+  zoom: () => prefs.zoom ? 'On: + and − over the slide picture zoom PowerPoint’s slide show; zoomed in, hold and drag the picture to move around. A trial: see README.txt.'
+                         : 'Off. A trial: + and − over the slide picture zoom the slide show on the big screen.',
 };
 function sw(btn, on, text) { btn.classList.toggle('sel', !!on); btn.setAttribute('aria-checked', String(!!on)); btn.querySelector('small').textContent = text; }
 function drawPrefs() {
   sw($('p-pic'), showPic(), PREF_TEXT.pic()); sw($('p-next'), prefs.next, PREF_TEXT.next());
   sw($('p-left'), prefs.left, PREF_TEXT.left()); sw($('p-swipe'), prefs.swipe, PREF_TEXT.swipe());
+  sw($('p-zoom'), !!prefs.zoom, PREF_TEXT.zoom());
   document.querySelectorAll('[data-motion]').forEach(b => { const on = b.dataset.motion === prefs.motion; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
   setText($('mo-t'), prefs.motion === 'phone' ? `Like this phone’s own setting (now: ${osStill.matches ? 'less' : 'full'} motion).` : prefs.motion === 'less' ? 'Less: no sliding, rippling or blinking; outcomes show steady.' : 'Full.');
 }
 const savePrefs = () => store.set('cuewand.prefs', JSON.stringify(prefs));
 $('p-pic').addEventListener('click', () => { prefs.pic = !showPic(); savePrefs(); drawPrefs(); if (S) { shownImg = '\u0000'; render(S); } });
-['next', 'left', 'swipe'].forEach(k => $('p-' + k).addEventListener('click', () => {
+['next', 'left', 'swipe', 'zoom'].forEach(k => $('p-' + k).addEventListener('click', () => {
   prefs[k] = !prefs[k]; savePrefs(); drawPrefs(); if (S) { shownImg = '\u0000'; render(S); }
 }));
 const osStill = matchMedia('(prefers-reduced-motion: reduce)');
@@ -1971,6 +2044,12 @@ const elapsed = () => T.elapsed + (T.running ? (performance.now() - T.at) / 1000
 const post = (path, body) => api(path, body).then(s => { apply(s); return s; })
   .catch(() => { toast('Not sent. Check the connection and try again.'); return null; });
 const timerCmd = body => post('/api/timer', body);
+const noClock = () => !!T && T.starts === 'off';
+const STARTS_HOW = {
+  show: 'The time counts from the moment the slide show starts: from this phone, a clicker or F5 on the laptop. Talking on the title slide counts.',
+  next: 'The time counts from your first Next. Talking on the first slide does not count, unless you tap “Start it now” in the talk.',
+  off: 'For a lesson: no countdown, no alerts, no pace. Next is just Next.',
+};
 
 /* Are you where you planned to be? Only a rehearsal can say that to the second.
    Without one, Cuewand speaks up only when you are clearly behind an even split. */
@@ -2006,7 +2085,8 @@ $('t-less').addEventListener('click', () => timerCmd({dur: Math.max(60, T.dur - 
 $('t-more').addEventListener('click', () => timerCmd({dur: T.dur + 60}));
 $('t-go').addEventListener('click', () => timerCmd({action: T.running ? 'pause' : 'start'}));
 twoTap($('t-reset'), 'Tap again', async () => { if (await timerCmd({action: 'reset'})) offerUndo('Clock reset.'); });
-$('t-auto').addEventListener('click', () => timerCmd({auto: !T.auto}));
+document.querySelectorAll('#t-starts button').forEach(b => b.addEventListener('click', () => timerCmd({starts: b.dataset.starts})));
+$('wait-go').addEventListener('click', () => { if (following()) { explainFollow(); return; } timerCmd({action: 'start'}); });
 $('b-menu').addEventListener('click', () => openSheet('s-menu'));
 
 /* the slide show, from the menu */
@@ -2115,9 +2195,10 @@ function drawMenu() {
   document.querySelectorAll('#t-len button').forEach(b => { const on = +b.dataset.s === T.dur; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
   document.querySelectorAll('#t-marks button').forEach(b => { const on = T.marks.includes(+b.dataset.s); b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
   setText($('su-len'), fmt(T.dur));
-  sw($('t-auto'), T.auto, T.auto
-    ? 'On: the clock starts the first time the show moves on, from this phone, a clicker or the keyboard.'
-    : 'Off: you start it yourself, in the Menu.');
+  document.querySelectorAll('#t-starts button').forEach(b => { const on = b.dataset.starts === T.starts; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', String(on)); });
+  setText($('t-starts-how'), STARTS_HOW[T.starts] || '');
+  $('su-clock').hidden = noClock();
+  $('m-clock').hidden = $('m-reh').hidden = noClock();
   $('r-start').hidden = reh;
   $('r-start').disabled = !ppt;
   if (!$('r-start').classList.contains('arm')) setText($('r-start-t'), p ? 'Rehearse again' : 'Rehearse now');
@@ -2219,7 +2300,8 @@ function fitFace() {
 function tick() {
   if (!T) { if (net === 'down') setText($('tot'), 'No connection'); return; }
   const now = performance.now();
-  const el = elapsed(), rem = T.dur - el, started = T.running || T.elapsed > 0, reh = !!T.rehearsing;
+  const reh = !!T.rehearsing, off = noClock() && !reh;
+  const el = elapsed(), rem = T.dur - el, started = !off && (T.running || T.elapsed > 0);
   const live = S && S.show === 'running', fol = following();
   const warnAt = T.marks.length ? Math.min(...T.marks) : 60;
   let clock = fmt(T.dur), sub = '', state = 'idle', level = 0, note = 'Not started', subCls = '';
@@ -2232,13 +2314,15 @@ function tick() {
     sub = !T.running ? 'Paused' : rem < 0 ? 'Over time' : p.txt;
     if (!T.running) subCls = 'framed';
     note = rem < 0 ? 'Over a ' + fmt(T.dur) + ' talk' : 'Left of ' + fmt(T.dur) + (T.running ? '' : ', paused');
-  } else if (live && T.auto) sub = 'Starts on first Next';
+  } else if (live && T.starts === 'next') sub = 'Starts on first Next';
+  else if (live && !off) sub = 'Not started';
   const timeTxt = reh ? clock + ' so far' : started ? (rem < 0 ? clock.slice(1) + ' over' : clock + ' left') : '';
 
   // The button carries the time: its level is what is left, its colour is how worried to be.
   // On top of that it says, most urgent first, what happened to your last press; the time then
   // moves to the slot at the bottom, so it is never off the button.
-  let main = started || reh || (live && T.auto) ? clock : 'Next', mcls = '', hint = started || reh || (live && T.auto) ? 'Next' : '';
+  const showClock = started || reh || (live && !off);
+  let main = showClock ? clock : 'Next', mcls = '', hint = showClock ? 'Next' : '';
   if (S && S.show === 'ended') hint = 'End of show';
   else if (live && S.black) hint = 'Show slides';
   else if (live && S.clicksOk && atEnd(S)) hint = retActive() || S.backup ? 'Backup slide' : 'Last slide';
@@ -2293,9 +2377,9 @@ function tick() {
   ro.className = 'num ' + (state === 'warn' || state === 'over' ? state : '');
   setText($('readsub'), note + (sub && started && T.running && rem >= 0 && !reh && !status ? '. ' + sub + '.' : '.'));
   for (const mk of firedMarks) if (rem > mk + 3) firedMarks.delete(mk);      // the clock went back (reset, undo): it may fire again
-  if (T.running && !reh && lastRem !== null && lastRem - rem < 2)
+  if (T.running && !reh && !off && lastRem !== null && lastRem - rem < 2)
     for (const mk of [...T.marks, 0]) if (lastRem > mk && rem <= mk && !firedMarks.has(mk)) { firedMarks.add(mk); alertAt(mk); break; }
-  lastRem = T.running && !reh ? rem : null;
+  lastRem = T.running && !reh && !off ? rem : null;
   if (live && S.section && Math.floor(now / 1000) % 2 === 0) drawMeta();
 }
 setInterval(tick, 250);
@@ -2394,9 +2478,11 @@ async function runCheck() {
   const others = s && s.control ? s.control.phones.filter(p => p.here && p.cid !== CID) : [];
   if (others.length) ckLine('ok', `${others.length + 1} phones are connected: ${[myLabel()].concat(others.map(p => p.name)).join(', ')}.`, 'Every phone can press Next. Menu › Co-presenters gives the slides to one phone.');
   const deck = s && (inShow() || s.show === 'idle');
+  if (deck && noClock()) ckLine('note', 'No clock for this talk.', 'Next is just Next: no countdown, alerts or pace. Setup turns the clock on.');
   if (deck) {
     const p = s.plan;
-    if (p && p.match) ckLine('ok', `Rehearsed in ${fmt(p.total)}.`, 'Pace compares you with that run.');
+    if (noClock()) { /* no clock: rehearsal and pace do not apply */ }
+    else if (p && p.match) ckLine('ok', `Rehearsed in ${fmt(p.total)}.`, 'Pace compares you with that run.');
     else if (p) ckLine('note', p.why === 'partial' ? `Your rehearsal covered ${p.covered} of ${p.shown} slides.` : `Your rehearsal was for ${p.slides} slides; this deck has ${s.total}.`, 'It is not used for pace. You still get the clock and the alerts.');
     else ckLine('note', 'No rehearsal for this deck.', 'You get the clock and the alerts. Ahead or behind needs one rehearsal.');
     const [got, total, failed] = s.pics;

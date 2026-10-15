@@ -39,7 +39,7 @@ def fresh(show=None, slide=None, **timer):
     post("/api/demo", {"delay": 0})
     post("/api/control", {"action": "take", "cid": "testreset"}); post("/api/control", {"action": "share", "cid": "testreset"})   # every phone presses
     cmd("end"); post("/api/rehearsal", {"action": "discard"}); post("/api/rehearsal", {"action": "delete"})
-    post("/api/timer", dict({"action": "reset", "dur": 900, "marks": [300, 60], "auto": True}, **timer))
+    post("/api/timer", dict({"action": "reset", "dur": 900, "marks": [300, 60], "starts": "next"}, **timer))
     if show:
         cmd("start")
         if slide:
@@ -110,14 +110,16 @@ def part_flow(b):
     check("first contact with no show running: Setup, and nothing else", ph.vis("#setup") and not ph.vis("#check") and ph.text("#su-go") == "Continue")
     lg = ph.js("(() => { const l = document.querySelector('#setup .mark .logo').getBoundingClientRect(), h = document.getElementById('su-h').getBoundingClientRect(); return [Math.round(l.height), Math.round(h.top - l.bottom), document.querySelector('#setup .mark .logo').getAttribute('aria-label')]; })()")
     check("the logo sits over Setup's heading: 22 px tall, 24 px above it, read as 'Cuewand'", lg == [22, 24, "Cuewand"], lg)
-    check("Setup asks only what a talk needs first: length, alerts, the clock; the rest is folded away", ph.vis("#t-len") and ph.vis("#t-marks") and ph.vis("#t-auto") and not ph.vis("#p-pic") and not ph.vis("#m-pics") and ph.pg.get_attribute("#su-more", "aria-expanded") == "false")
+    check("Setup asks only what a talk needs first: the clock, length, alerts; the rest is folded away", ph.vis("#t-starts") and ph.vis("#t-len") and ph.vis("#t-marks") and not ph.vis("#p-pic") and not ph.vis("#m-pics") and ph.pg.get_attribute("#su-more", "aria-expanded") == "false")
     go, skip, ft = ph.pg.locator("#su-go").bounding_box(), ph.pg.locator("#su-skip").bounding_box(), ph.pg.locator("#setup .foot").bounding_box()
     check("its two buttons share one row, the main one on the right", abs(go["y"] + go["height"] / 2 - skip["y"] - skip["height"] / 2) < 3 and go["x"] > skip["x"] and ft["height"] < 90, ft)
     check("setup knows the deck and the talk length", "Demo deck.pptx, 8 slides" in ph.text("#su-deck") and ph.text("#su-len") == "15:00" and ph.text("#t-len button.sel") == "15")
     check("the talk view under Setup cannot be reached (inert)", ph.js("document.getElementById('app').inert === true"))
     ph.pg.locator("#t-len button", has_text="12").click(); ph.wait(300)
     check("talk length set in Setup", state()["timer"]["dur"] == 720 and ph.text("#su-len") == "12:00" and ph.pg.locator("#t-len button", has_text="12").get_attribute("aria-pressed") == "true")
-    check("clock starts with the first Next by default, and says so", ph.pg.get_attribute("#t-auto", "aria-checked") == "true" and "first time the show moves on" in ph.text("#t-auto"))
+    check("Setup asks when the clock starts, three ways, and says what the chosen one means",
+          ph.js("[...document.querySelectorAll('#t-starts button')].map(b => b.textContent)") == ["When the slide show starts", "With my first Next", "No clock"]
+          and ph.pg.get_attribute("#t-starts button[data-starts=next]", "aria-pressed") == "true" and "first Next" in ph.text("#t-starts-how"))
     post("/api/timer", {"dur": 900})
     ph.pg.click("#su-more"); ph.wait(350)
     check("'More options' unfolds what this phone shows, the buttons and the slide pictures", ph.vis("#p-pic") and ph.vis("#p-left") and ph.pg.get_attribute("#su-more", "aria-expanded") == "true")
@@ -1031,7 +1033,71 @@ def part_fit(b):
         ph.close()
 
 
-PARTS = {"flow": part_flow, "press": part_press, "trouble": part_trouble, "clock": part_clock, "picture": part_picture, "small": part_small, "access": part_access, "v23": part_v23, "v23b": part_v23b, "fit": part_fit}
+def part_v26(b):
+    """2.6: when the clock starts (or no clock at all), and zoom on the big screen (a trial)."""
+    fresh()
+    ph = Phone(b).open(wait=300); ph.wait(900)
+    ph.pg.click("#t-starts button[data-starts=off]"); ph.wait(500)
+    check("'No clock' in Setup: the computer takes it, and talk length and alerts step aside",
+          state()["timer"]["starts"] == "off" and not ph.vis("#t-len") and not ph.vis("#t-marks") and "lesson" in ph.text("#t-starts-how")
+          and ph.pg.get_attribute("#t-starts button[data-starts=off]", "aria-pressed") == "true", ph.text("#t-starts-how"))
+    ph.pg.click("#su-skip"); ph.wait(500)
+    check("no clock: the start screen offers no rehearsal", ph.vis("#rest-start") and not ph.vis("#rest-reh"))
+    cmd("start"); ph.wait(900); cmd("next"); ph.wait(700)
+    check("no clock, in the talk: Next is just Next, with no time and no band", ph.text("#s-main") == "Next" and ph.text("#s-sub") == "" and not ph.vis("#waitbar") and not state()["timer"]["running"],
+          (ph.text("#s-main"), ph.text("#s-sub")))
+    ph.pg.click("#b-menu"); ph.wait(400)
+    check("and the Menu has no clock and no rehearsal", not ph.vis("#readout") and not ph.vis("#t-go") and not ph.vis("#r-start") and ph.vis("#m-setup"))
+    ph.shot("v26_noclock_menu")
+    ph.pg.click("#m-setup"); ph.wait(400)
+    ph.pg.click("#t-starts button[data-starts=show]"); ph.wait(600)
+    check("'When the slide show starts' chosen during the show: the clock starts there and then", state()["timer"]["running"] and ph.vis("#t-len"))
+    ph.pg.click("#su-go"); ph.wait(300)
+    post("/api/timer", {"action": "reset", "starts": "next"}); ph.wait(900)
+    check("'With my first Next', the show running, the clock not yet: a band says so and offers to start it",
+          ph.vis("#waitbar") and ph.text("#wait-t") == "The clock starts with your first Next" and ph.text("#wait-go") == "Start it now")
+    ph.shot("v26_waitbar")
+    ph.pg.click("#wait-go"); ph.wait(800)
+    check("'Start it now' starts it, and the band goes", state()["timer"]["running"] and not ph.vis("#waitbar"))
+    cmd("end"); ph.wait(900)
+    check("the start screen says when the clock starts", "The clock starts with your first Next." in ph.text("#rest-p"), ph.text("#rest-p"))
+    post("/api/timer", {"action": "reset", "starts": "show"}); ph.wait(700)
+    check("and says it for the other rule too", "The clock starts with the slide show." in ph.text("#rest-p"), ph.text("#rest-p"))
+    ph.close()
+
+    # zoom on the big screen, a trial: off unless switched on in Setup
+    fresh(show=True, slide=2)
+    ph = Phone(b, seen=True)
+    pans, lasers = [], []
+    ph.pg.on("request", lambda r: pans.append(json.loads(r.post_data)) if "/api/pan" in r.url else (lasers.append(json.loads(r.post_data)) if "/api/laser" in r.url else None))
+    ph.open(); ph.wait(600)
+    check("zoom is off unless switched on: nothing over the picture", not ph.vis("#zoombar"))
+    ph.pg.click("#b-menu"); ph.wait(300); ph.pg.click("#m-setup"); ph.wait(300)     # from the Menu, Setup opens with More options unfolded
+    ph.pg.locator("#p-zoom").scroll_into_view_if_needed(); ph.pg.click("#p-zoom"); ph.wait(200)
+    check("the switch is under More options, says it is a trial and what it does", ph.pg.get_attribute("#p-zoom", "aria-checked") == "true" and "trial" in ph.text("#p-zoom").lower() and "hold and drag" in ph.text("#p-zoom"))
+    ph.pg.click("#su-go"); ph.wait(400)
+    check("switched on: + and − over the slide picture; − does nothing at normal size", ph.vis("#z-in") and ph.vis("#z-out") and ph.pg.is_disabled("#z-out") and not ph.vis("#z-fit"))
+    ph.pg.click("#z-in"); ph.wait(600)
+    check("+ zooms the big screen in, and Fit appears with a word on how to move around", state()["zoom"] == 1 and ph.vis("#z-fit") and ph.vis("#zoomtag") and not ph.pg.is_disabled("#z-out"), state()["zoom"])
+    check("tapping + is not a laser press", not any(l["on"] for l in lasers), lasers)
+    ph.shot("v26_zoomed")
+    p = ph.pg.locator("#pic").bounding_box()
+    ph.pg.mouse.move(p["x"] + p["width"] * 0.3, p["y"] + p["height"] * 0.6); ph.pg.mouse.down(); ph.wait(450)
+    ph.pg.mouse.move(p["x"] + p["width"] * 0.7, p["y"] + p["height"] * 0.4, steps=5); ph.wait(300); ph.pg.mouse.up(); ph.wait(400)
+    phases = [x["phase"] for x in pans]
+    check("zoomed in, a held finger drags the slide: down, moves, up, and no laser", phases[:1] == ["down"] and phases[-1] == "up" and "move" in phases and not any(l["on"] for l in lasers), phases)
+    check("it lets go where the finger lifted", abs(pans[-1]["x"] - 0.7) < 0.03 and abs(pans[-1]["y"] - 0.4) < 0.04, pans[-1])
+    ph.pg.click("#z-fit"); ph.wait(600)
+    check("Fit: back to the whole slide", state()["zoom"] == 0 and not ph.vis("#z-fit") and not ph.vis("#zoomtag"))
+    ph.pg.click("#z-in"); ph.wait(500); cmd("goto", n=4); ph.wait(700)
+    check("another slide comes up at its normal size", state()["zoom"] == 0 and state()["slide"] == 4 and not ph.vis("#z-fit"), (state()["zoom"], state()["slide"]))
+    lasers.clear(); ph.pg.mouse.move(p["x"] + p["width"] * 0.5, p["y"] + p["height"] * 0.5); ph.pg.mouse.down(); ph.wait(450); ph.pg.mouse.up(); ph.wait(300)
+    check("not zoomed in, holding the picture is the laser again", any(l["on"] for l in lasers), lasers[-2:])
+    ph.js("localStorage.removeItem('cuewand.prefs')")
+    ph.close()
+
+
+PARTS = {"flow": part_flow, "press": part_press, "trouble": part_trouble, "clock": part_clock, "picture": part_picture, "small": part_small, "access": part_access, "v23": part_v23, "v23b": part_v23b, "fit": part_fit, "v26": part_v26}
 want = sys.argv[1:] or list(PARTS)
 server()
 with sync_playwright() as p:

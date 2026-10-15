@@ -33,7 +33,7 @@ def cmd(c, **k):
 
 # ------------------------------------------------------------------ pace and rehearsal
 sess = server(); K = sess["key"]; H = sess["host_key"]
-req("/api/timer", {"action": "reset", "dur": 70, "marks": [60], "auto": False}); cmd("end")
+req("/api/timer", {"action": "reset", "dur": 70, "marks": [60], "starts": "off"}); cmd("end")
 s = cmd("start"); check("no plan yet, even pace window for slide 1 of 7 visible", s["plan"] is None and s["pace"] == {"lo": 0.0, "hi": 10.0, "basis": "even"}, s["pace"])
 s = cmd("goto", n=5); check("even pace: slide 5 is 5th visible -> 40..50 s of 70", s["pace"]["lo"] == 40.0 and s["pace"]["hi"] == 50.0, s["pace"])
 s = cmd("goto", n=6); check("hidden slide gets a zero-width window", s["pace"]["lo"] == s["pace"]["hi"] == 50.0, s["pace"])
@@ -71,7 +71,7 @@ s = req("/api/timer", {"action": "reset"}); r = req("/api/recap"); check("reset 
 s = req("/api/rehearsal", {"action": "start"}); s = req("/api/rehearsal", {"action": "discard"}); check("discard keeps the old plan", s["plan"] and not s["timer"]["rehearsing"])
 
 # ------------------------------------------------------------------ what survives a restart
-req("/api/timer", {"action": "reset", "dur": 300, "marks": [120, 30], "auto": True})
+req("/api/timer", {"action": "reset", "dur": 300, "marks": [120, 30], "starts": "next"})
 cmd("first"); cmd("next"); time.sleep(1.0); cmd("goto", n=3); time.sleep(2.2)      # timer started by the first advance
 before = req("/api/state?since=0"); info = req(f"/api/host/info?h={H}")
 check("first run: not marked as continued", info["restored"] is False)
@@ -239,6 +239,8 @@ hub = cuewand.Hub(); be = cuewand.DemoBackend(hub); ctx = cuewand.Context(hub, b
 base = dict(cuewand.EMPTY_SHOW, mode="demo", deck="D.pptx", total=8)
 pub = lambda **k: hub.publish(dict(base, **k))
 t = hub.timer
+check("a new session's clock starts with the slide show", t.starts == "show")
+t.starts = "next"                   # first, the rule from before 2.6: with the first Next
 pub(show="idle"); pub(show="running", slide=1); pub(show="running", slide=2)
 check("first advance starts the clock", t.running)
 time.sleep(0.6); pub(show="idle"); e1 = t.elapsed()
@@ -255,6 +257,24 @@ ctx.do_timer({"action": "pause"}); pub(show="idle"); pub(show="running", slide=1
 check("a clock the presenter paused by hand is left alone", not t.running)
 ctx.do_timer({"action": "reset"}); pub(show="idle"); pub(show="running", slide=3); pub(show="running", slide=4)
 check("after a reset the next show starts it again", t.running)
+
+# "when the slide show starts": the same safeguards, with the start of the show as the moment
+ctx.do_timer({"action": "reset", "starts": "show"}); pub(show="idle")
+pub(show="running", slide=1); check("'when the slide show starts': the clock runs as slide 1 comes up, before any Next", t.running and t.elapsed() < 0.2)
+time.sleep(0.4); pub(show="idle"); e1 = t.elapsed(); pub(show="running", slide=1)
+check("the show only blinked: the clock carries on", t.running and t.elapsed() >= e1)
+time.sleep(0.2); pub(show="idle"); ctx.ended_at -= 11; e2 = t.elapsed()
+pub(show="running", slide=4); check("a new show from the middle: the clock resumes at once", t.running and t.elapsed() >= e2)
+time.sleep(0.2); pub(show="idle"); ctx.ended_at -= 11
+pub(show="running", slide=1); check("a new show from the first slide: a fresh clock at once", t.running and t.elapsed() < 0.2, t.elapsed())
+ctx.do_timer({"action": "pause"}); pub(show="idle"); pub(show="running", slide=1)
+check("a clock the presenter paused by hand is still left alone", not t.running)
+ctx.do_timer({"action": "reset", "starts": "off"}); pub(show="idle"); pub(show="running", slide=1); pub(show="running", slide=2)
+check("no clock: the show and its first advance leave it at zero", not t.running and t.elapsed() == 0)
+sess_t = cuewand.TalkTimer(); sess_t.load({"dur": 600, "marks": [60], "auto": True, "acc": 0, "running": False, "wall": time.time()})
+check("a session saved by 2.5 (auto on) comes back as 'with my first Next'", sess_t.starts == "next")
+sess_t.load({"dur": 600, "marks": [60], "starts": "off", "acc": 0, "running": False, "wall": time.time()})
+check("and 2.6 keeps the rule it saved", sess_t.starts == "off" and sess_t.dump()["starts"] == "off")
 
 # cleaning up never touches a folder Cuewand did not make
 base_dir = tempfile.mkdtemp(prefix="sweep_"); old = time.time() - 8 * 3600

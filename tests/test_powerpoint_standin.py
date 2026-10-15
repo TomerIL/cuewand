@@ -18,7 +18,9 @@ class ComError(Exception):
     def __init__(self, hr): super().__init__(hr); self.hresult = hr
 
 
-calls = {"cursor": [], "keys": []}
+calls = {"cursor": [], "keys": [], "mouse": []}
+PIDS = {0xF00D: 4242, 0x50A1E: 4242}      # window -> program: the window in front and the slide show
+GRANT = {"front": True}                   # does Windows let Cuewand bring the show to the front?
 
 
 class FnBox:
@@ -41,6 +43,9 @@ class U32(Strict):
         s.GetForegroundWindow = FnBox(lambda: 0xF00D)
         s.GetClassNameW = FnBox(_classname)
         s.FindWindowW = FnBox(lambda cls, title: FRONT["editor"] if cls == "PPTFrameClass" else 0)
+        s.mouse_event = lambda fl, x, y, d, ex: calls["mouse"].append(fl)
+        s.GetWindowThreadProcessId = FnBox(lambda hwnd, ref: (setattr(ref._obj, "value", PIDS.get(hwnd, 0)), 1)[1])
+        s.SetForegroundWindow = FnBox(lambda hwnd: PIDS.__setitem__(0xF00D, PIDS[0x50A1E]) if GRANT["front"] else None)
 
 
 ctypes.windll = types.SimpleNamespace(user32=U32())
@@ -324,6 +329,28 @@ be.laser(1.0, 1.0, True); check("laser bottom-right", calls["cursor"][-1] == (38
 be.laser(1.0, 1.0, False); time.sleep(0.4); check("laser off on release", view.LaserPointerEnabled is False)
 be.laser(0.5, 0.5, True); time.sleep(0.4); on = view.LaserPointerEnabled; time.sleep(2.8)
 check("laser auto-off when phone goes quiet", on is True and view.LaserPointerEnabled is False)
+
+# zoom on the big screen (a trial): the + and - keys of the number pad, as many minuses as pluses
+FRONT["class"] = "screenClass"      # the slide show is the window in front
+k0 = len(calls["keys"]); r = be.zoom("out")
+check("zoom out at normal size sends nothing (minus would show all slides to the room)", r == "fit" and len(calls["keys"]) == k0, r)
+r1, r2 = be.zoom("in"), be.zoom("in")
+check("zoom in twice: two pluses, key down and up", (r1, r2) == ("done", "done") and calls["keys"][k0:] == [(0x6B, 0), (0x6B, 2)] * 2 and be.zoom_level == 2, calls["keys"][k0:])
+m0 = len(calls["mouse"]); be.pan("down", 0.0, 0.0); be.pan("move", 1.0, 1.0); be.pan("up", 1.0, 1.0)
+check("zoomed in, the finger drags the slide: button down on the slide, moved, let go", calls["mouse"][m0:] == [2, 4] and calls["cursor"][-1] == (3839, 1139), calls["mouse"][m0:])
+be.pan("down", 0.5, 0.5); time.sleep(3.0)
+check("the phone goes quiet mid-drag: the button is let go by itself", calls["mouse"][-1] == 4 and not be.pan_down, calls["mouse"][-2:])
+k0 = len(calls["keys"]); r = be.zoom("fit")
+check("Fit: as many minuses as pluses, no more", r == "done" and calls["keys"][k0:] == [(0x6D, 0), (0x6D, 2)] * 2 and be.zoom_level == 0, calls["keys"][k0:])
+m0 = len(calls["mouse"]); r = be.pan("down", 0.5, 0.5)
+check("not zoomed in: no mouse press (it would be a click, and move the show on)", r == "not-zoomed" and calls["mouse"][m0:] == [])
+PIDS[0xF00D] = 777; GRANT["front"] = False; k0 = len(calls["keys"]); r = be.zoom("in")
+check("another program in front, and Windows will not hand the front over: no key is sent", r == "not-front" and len(calls["keys"]) == k0, r)
+GRANT["front"] = True; r = be.zoom("in")
+check("when Windows does hand it over, the zoom goes to the show", r == "done" and be.zoom_level == 1, r)
+FRONT["class"] = "PPTFrameClass"; k0 = len(calls["keys"]); r = be.zoom("in")
+check("PowerPoint's editor in front: no key (a plus would land in the deck)", r == "not-front" and len(calls["keys"]) == k0, r)
+FRONT["class"] = "screenClass"; be.zoom("fit"); FRONT["class"] = "PPTFrameClass"
 be.command("goto", {"n": 99}); s = hub.snapshot(); check("goto out of range ignored", s["slide"] == 2)
 
 # during a show the notes come from memory: reading a notes page then kept a real PowerPoint busy for 4 s

@@ -13,13 +13,14 @@ Nothing is installed on the phone: it scans a code and a web page opens.</p>
 
 ## What it does
 
-- **One big Next button that is also your clock.** Its fill is the time left; it turns amber when time runs short, and the phone vibrates and flashes at the alerts you chose.
+- **One big Next button that is also your clock.** Its fill is the time left; it turns amber when time runs short, and the phone vibrates and flashes at the alerts you chose. The clock starts with the slide show or with your first Next, as you choose; for a lesson, turn it off.
 - **Your speaker notes, step by step.** Write `[click]` in your notes where an animation step starts, and the phone shows only what to say now.
 - **A laser pointer.** Hold the slide picture on the phone to point at the screen.
+- **Zoom (a trial).** + and − on the phone zoom the slide show on the big screen; zoomed in, drag the picture to move around.
 - **Questions.** Find any slide by a word or its number, jump to it, and come back with one tap.
 - **Rehearsal and pace.** Time one run-through; during the talk Cuewand tells you if you are ahead or behind.
 - **Co-presenters.** Several phones can connect; one can have the slides while the others follow.
-- **Your clicker still works.** A press on the clicker shows up on the phone, and the clock starts with the first advance whichever of them made it.
+- **Your clicker still works.** A press on the clicker shows up on the phone, and it starts the clock just as the phone does.
 
 <p align="center"><img src="docs/pairing-page.png" alt="The pairing page on the laptop: a large code to scan, a 6-digit number for phones without a camera, and the state of PowerPoint and the phone" width="85%"></p>
 
@@ -34,7 +35,7 @@ Nothing is installed on the phone: it scans a code and a web page opens.</p>
 1. Download **Cuewand-for-Windows.zip** from [Releases](https://github.com/TomerIL/cuewand/releases/latest) and extract it (right-click, Extract All).
 2. Double-click **Start Cuewand.exe**. A page opens in your browser with a large code.
 3. Open your deck in PowerPoint and scan the code with the phone's camera, in either order. There is no file to choose in Cuewand: it finds the deck open in PowerPoint by itself, and the page on the laptop says "Found your deck".
-4. On the phone, Setup asks for the talk length and the alerts. One tap runs a ready check; the button under its answer starts the slide show.
+4. On the phone, Setup asks when the clock starts (with the slide show, with your first Next, or no clock at all, for a lesson), the talk length and the alerts. One tap runs a ready check; the button under its answer starts the slide show.
 
 **Windows firewall:** when Windows asks about Python, tick **Public as well as Private**, then Allow. Hotel, venue and hotspot networks count as Public.
 
@@ -58,7 +59,7 @@ The pairing page and its buttons answer only the laptop itself. On "Same Wi-Fi" 
 
 ## Status
 
-Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 608 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.exe** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
+Earlier versions ran on real PowerPoint 16 on Windows 11 with one presenter. Every change since has been tested against a stand-in for PowerPoint and in phone- and tablet-sized browsers: 664 automated checks in `tests/`, plus an accessibility audit of every screen. A stand-in cannot disagree with its author about how PowerPoint behaves, so run **Test Cuewand.exe** on your own deck. [README.txt](README.txt) lists exactly what has and has not been tried.
 
 ```
 python tests/run_all.py

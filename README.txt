@@ -1,4 +1,4 @@
-Cuewand 2.5 - run your slides from your phone
+Cuewand 2.6 - run your slides from your phone
 =============================================
 
 Your phone becomes the remote for PowerPoint: Next and Back, your speaker
@@ -43,8 +43,8 @@ Start
    picture of every slide now, while no slide show runs, so that it never
    has to ask PowerPoint for one during your talk. The page on the computer and
    the phone both show the progress.
-5. On the phone: Setup asks for the talk length and the alerts (everything
-   else is under "More options"), then Continue. Cuewand checks the
+5. On the phone: Setup asks when the clock starts, the talk length and the
+   alerts (everything else is under "More options"), then Continue. Cuewand checks the
    connection, PowerPoint, your notes, the screen and vibration, and gives
    one answer. The button under that answer starts the slide show.
 
@@ -92,12 +92,22 @@ Two buttons       Back and Next (Next is the big one). A press counts for
 
 The clock         The Next button is the clock. It shows the time left, its
                   level sinks as the talk goes, the whole button turns
-                  amber when time is short and red when you are over. The
-                  clock starts with your first Next (or the first press on
-                  a clicker or the keyboard) and stops when the slide show
-                  ends. Start the show again from the first slide and the
-                  clock starts from zero; start it again from any other
-                  slide and it carries on. A clock you paused yourself is
+                  amber when time is short and red when you are over.
+                  When it starts is the first question in Setup:
+                  - When the slide show starts (the usual choice): from
+                    the phone, a clicker or F5 on the laptop. Talking on
+                    the title slide counts.
+                  - With my first Next (or the first press on a clicker
+                    or the keyboard). Talking on the first slide does not
+                    count. While the show runs and the clock waits, a band
+                    above the notes says so, with "Start it now".
+                  - No clock: for a lesson rather than a talk. Next is
+                    just Next: no countdown, no alerts, no pace, and the
+                    Menu has no clock and no rehearsal.
+                  The start screen says which rule is set. The clock stops
+                  when the slide show ends. Start the show again from the
+                  first slide and the clock starts from zero; start it
+                  again from any other slide and it carries on. A clock you paused yourself is
                   left alone. Paused shows as a framed word. The time
                   never leaves the button: while it shows "Slide 8" or
                   "Sending", the time moves to its bottom line. The digits
@@ -216,6 +226,19 @@ Slide picture     Hold it to point: PowerPoint's red laser dot follows your
                   slides without saving and a picture is old, Setup has
                   "Make the slide pictures again" under More options.
 
+Zoom (a trial)    Setup, More options, "Zoom on the big screen (trial)".
+                  Then + and - sit over the slide picture and zoom the
+                  slide show on the big screen, through PowerPoint's own
+                  zoom (the + and - keys of the number pad). Zoomed in,
+                  hold and drag the picture to move around the slide; Fit
+                  goes back to the whole slide, and so does every new
+                  slide. Cuewand only sends as many minuses as pluses:
+                  minus at normal size would put PowerPoint's view of all
+                  slides on the big screen. The slide show must be the
+                  window in front on the laptop; if it is not, the phone
+                  says to click it once. Try it before a talk; see "What
+                  has been tried" below.
+
 Last slide        Next there only says "Last slide", however often you
                   press it. You cannot walk off the end by accident, and
                   the phone never changes screen by itself. For the other
@@ -260,6 +283,7 @@ Menu
 ----
 The clock         Start, pause, resume, reset (reset asks twice, then
                   offers Undo for ten seconds); one minute more or less.
+                  Not there when Setup says "No clock".
 The slide show    Black out the screen.
 Co-presenters     When two phones are connected: pass the slides to the
                   other phone, take them, or let every phone press. See
@@ -268,7 +292,7 @@ Rehearsal         Rehearse now (whenever it would move the show or restart
                   the clock it asks twice, and afterwards it offers Undo,
                   which returns to the slide you were on); Where the time
                   went, by section; forget a rehearsal.
-This phone        Text size; Setup (talk length, alerts, your name, what
+This phone        Text size; Setup (the clock, talk length, alerts, your name, what
                   this phone shows, left hand, motion); Run the ready check
                   again.
 Ending            In red: End the slide show; Start over, which ends the
@@ -437,13 +461,20 @@ ever counted twice, and both safeguards held. It also showed two things
   quick press until the slide's transition is over, sends it once more if
   it was swallowed, and says "Nothing moved" if it still was.
 Everything else since 1.6 has been run against a stand-in for PowerPoint
-and in phone- and tablet-sized desktop browsers: 608 automated checks, in
+and in phone- and tablet-sized desktop browsers: 664 automated checks, in
 the tests folder, plus an automated accessibility audit (axe-core) of every
 screen. A stand-in written by the author cannot disagree with the author
 about how PowerPoint behaves. "Test Cuewand.exe" is the real test: run it on
 your deck.
 
 Not tried at all:
+- Zoom on the big screen (2.6, a trial). Microsoft's list of slide-show
+  shortcuts does not mention + and - for zoom, so try on your laptop,
+  before a talk: that + and - zoom the show; where the zoom is centred;
+  that holding and dragging the slide picture moves the zoomed slide and
+  never moves the show on to the next slide; what Next does while zoomed
+  in; whether a new slide really comes up at normal size. cuewand.log
+  records each zoom with PowerPoint's own zoom figure.
 - 2.5 on real PowerPoint. It talks to PowerPoint through comtypes instead
   of pywin32, so that every program file Windows runs is signed. The
   Windows build checks that comtypes drives a real COM object the same
@@ -460,7 +491,7 @@ Not tried at all:
   now records what is needed to find out why
 - PowerPoint's Presenter View, two screens, a deck on OneDrive with
   AutoSave, PowerPoint started as administrator
-- a real screen reader: 2.5 has not yet passed the release gate below.
+- a real screen reader: 2.6 has not yet passed the release gate below.
 - PowerPoint sections and [click] notes on a real deck (the stand-in reads
   them the way PowerPoint documents them)
 
@@ -478,7 +509,7 @@ version and the date:
    comes back to where it was.
 4. The search field can be typed in, and a found slide opened.
 5. Voice Access ("tap Next") and Switch Access press Next once.
-2.5 has not been through this yet.
+2.6 has not been through this yet.
 
 
 Options

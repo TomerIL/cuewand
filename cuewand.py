@@ -46,7 +46,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 APP = "Cuewand"
-VERSION = "2.5"
+VERSION = "2.6"
 HERE = os.path.dirname(os.path.abspath(__file__))
 # The two small libraries Cuewand uses travel with it: segno (draws the pairing
 # code) and comtypes (talks to PowerPoint). Nothing is installed.
@@ -130,11 +130,16 @@ def release_lock():
 # Shared state
 # --------------------------------------------------------------------------
 
+CLOCK_STARTS = ("show", "next", "off")
+
+
 class TalkTimer:
     def __init__(self):
         self.dur = 15 * 60          # talk length, seconds
         self.marks = [300, 60]      # alert when this many seconds remain
-        self.auto = True            # start on the first advance of the slide show
+        # when the clock starts by itself: "show" as the slide show starts, "next"
+        # with the first advance (slide 2, or a step), "off": there is no clock
+        self.starts = "show"
         self.running = False
         self.acc = 0.0
         self.t0 = 0.0
@@ -160,12 +165,12 @@ class TalkTimer:
         self.acc = 0.0
 
     def view(self) -> dict:
-        return {"dur": self.dur, "marks": self.marks, "auto": self.auto,
+        return {"dur": self.dur, "marks": self.marks, "starts": self.starts,
                 "running": self.running, "elapsed": round(self.elapsed(), 2)}
 
     # kept on disk so that restarting Cuewand does not lose the talk clock
     def dump(self) -> dict:
-        return {"dur": self.dur, "marks": self.marks, "auto": self.auto,
+        return {"dur": self.dur, "marks": self.marks, "starts": self.starts,
                 "running": self.running, "acc": round(self.elapsed(), 2),
                 "wall": time.time()}
 
@@ -174,7 +179,10 @@ class TalkTimer:
             self.dur = max(30, min(int(d["dur"]), 12 * 3600))
             self.marks = sorted({int(m) for m in d.get("marks", []) if 0 < int(m) < 12 * 3600},
                                 reverse=True)
-            self.auto = bool(d.get("auto", True))
+            starts = d.get("starts")
+            if starts not in CLOCK_STARTS:     # a session saved by 2.5 or before
+                starts = "next" if d.get("auto", True) else "show"
+            self.starts = starts
             acc = float(d.get("acc", 0.0))
             gap = max(0.0, time.time() - float(d.get("wall", time.time())))
             # Closed for a moment mid-talk: the clock kept running. Closed for
@@ -590,6 +598,8 @@ class DemoBackend:
         self.click = 0
         self.black = False
         self.gen = 1
+        self.zoom_level = 0             # how many times zoomed in on this slide
+        self.last_pan = None
         self.last_laser = None
         self.visible = [i + 1 for i, d in enumerate(DEMO_DECK) if not d[2]]
         self.sections = [{"name": nm, "first": a, "last": b} for nm, a, b in DEMO_SECTIONS]
@@ -757,6 +767,26 @@ class DemoBackend:
     def laser(self, x: float, y: float, on: bool):
         self.last_laser = (round(x, 3), round(y, 3), on)
 
+    def zoom(self, action: str) -> str:
+        with self.lock:
+            if not self.running or self.ended:
+                return "no-show"
+            if action == "in":
+                if self.zoom_level >= ZOOM_MAX:
+                    return "max"
+                self.zoom_level += 1
+            elif self.zoom_level <= 0:
+                return "fit"
+            else:
+                self.zoom_level = self.zoom_level - 1 if action == "out" else 0
+            return "done"
+
+    def pan(self, phase: str, x: float, y: float) -> str:
+        if phase == "down" and self.zoom_level <= 0:
+            return "not-zoomed"
+        self.last_pan = (phase, round(x, 3), round(y, 3))
+        return "done"
+
     def slide_image(self, n: int, width: int = 0):
         if not (1 <= n <= len(DEMO_DECK)):
             return None
@@ -832,6 +862,14 @@ PIC_RETRY_GAP = 2.0       # s before the second attempt; twice that before the t
 SLOW_EXPORT = 0.6         # s. A picture slower than this, mid-show, stops further ones
 CALM_AFTER_PRESS = 1.5    # s without a press before a picture may be made mid-show
 PPT_EDITOR_CLASS = "PPTFrameClass"   # PowerPoint's editing window (not the slide show)
+# Zoom on the big screen (a trial): PowerPoint's own slide-show zoom, reached with the
+# + and - keys of the number pad. Minus at normal size would open PowerPoint's view of
+# all slides in front of the room, so Cuewand only ever sends as many minuses as pluses.
+VK_ZOOM_IN, VK_ZOOM_OUT = 0x6B, 0x6D
+ZOOM_MAX = 6
+MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP = 0x0002, 0x0004
+ZOOM_ACTIONS = ("in", "out", "fit")
+PAN_PHASES = ("down", "move", "up")
 
 
 class WindowsBackend:
@@ -899,6 +937,10 @@ class WindowsBackend:
         self.laser_want = False
         self.laser_time = 0.0
         self.laser_lock = threading.Lock()
+        self.zoom_level = 0             # how many times Cuewand zoomed in on this slide
+        self.pan_down = False           # the mouse button is held down to move a zoomed slide
+        self.pan_time = 0.0
+        self.pan_lock = threading.Lock()
         self._logged: dict[str, float] = {}
         self._seen = None
         self.user32 = ctypes.windll.user32
@@ -913,6 +955,8 @@ class WindowsBackend:
             u.GetClassNameW.argtypes = [wintypes.HWND, ctypes.c_wchar_p, ctypes.c_int]
             u.FindWindowW.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p]
             u.FindWindowW.restype = wintypes.HWND
+            u.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+            u.SetForegroundWindow.argtypes = [wintypes.HWND]
         except Exception:
             pass
         self.thread = threading.Thread(target=self._run, name="powerpoint", daemon=True)
@@ -972,6 +1016,33 @@ class WindowsBackend:
             self.laser_want = on
         if changed:
             self.q.put((0, next(self.seq), _Job(lambda: self._set_laser(on), "laser")))
+
+    def zoom(self, action: str) -> str:
+        return self._call(0, lambda: self._zoom(action), timeout=PRESS_TIMEOUT,
+                          label="zoom " + action)
+
+    def pan(self, phase: str, x: float, y: float) -> str:
+        """Move around a zoomed slide: PowerPoint lets the mouse drag it. Only
+        while Cuewand has zoomed in: a press and release on a slide at its
+        normal size would be a click, and a click moves the show on."""
+        with self.pan_lock:
+            self.pan_time = time.monotonic()
+            if phase == "down":
+                if self.zoom_level <= 0:
+                    return "not-zoomed"
+                self._move_cursor(x, y)
+                if not self.pan_down:
+                    self.user32.mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    self.pan_down = True
+            elif phase == "move":
+                if not self.pan_down:
+                    return "not-down"
+                self._move_cursor(x, y)
+            elif self.pan_down:
+                self._move_cursor(x, y)
+                self.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                self.pan_down = False
+        return "done"
 
     def slide_image(self, n: int, width: int = 0):
         """Never asks PowerPoint: a picture is either already made, or not there."""
@@ -1994,6 +2065,75 @@ class WindowsBackend:
             self.outline_cache = out    # otherwise a notes read is still being retried
         return out
 
+    # ---- zoom on the big screen (a trial) ----
+
+    def _pid(self, hwnd) -> int:
+        pid = self.wintypes.DWORD(0)
+        try:
+            self.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        except Exception:
+            return 0
+        return int(pid.value)
+
+    def _show_in_front(self, win) -> bool:
+        """Keys go to the window in front: it must be the slide show (or another
+        window of PowerPoint's own, such as Presenter View), never the editor."""
+        try:
+            hwnd = int(win.HWND)
+        except Exception:
+            hwnd = 0
+        if not hwnd or self._editor_in_front():
+            return False
+
+        def ours():
+            front = self.user32.GetForegroundWindow() or 0
+            return bool(front) and (front == hwnd or self._pid(front) == self._pid(hwnd) != 0)
+        if ours():
+            return True
+        try:
+            self.user32.SetForegroundWindow(hwnd)     # Windows may refuse this
+            time.sleep(0.05)
+        except Exception:
+            pass
+        return ours()
+
+    @staticmethod
+    def _zoom_pct(view):
+        try:
+            return int(view.Zoom)
+        except Exception:
+            return "?"
+
+    def _zoom(self, action: str) -> str:
+        show = self._show()
+        if show is None:
+            return "no-show"
+        view = show[2]
+        if not self._show_in_front(show[1]):
+            log.info("zoom %s: the slide show is not the window in front", action)
+            return "not-front"
+        level = self.zoom_level
+        if action == "in":
+            if level >= ZOOM_MAX:
+                return "max"
+            keys, level = [VK_ZOOM_IN], level + 1
+        elif level <= 0:
+            return "fit"
+        elif action == "out":
+            keys, level = [VK_ZOOM_OUT], level - 1
+        else:
+            keys, level = [VK_ZOOM_OUT] * level, 0
+        before = self._zoom_pct(view)
+        for i, vk in enumerate(keys):
+            if i:
+                time.sleep(0.15)
+            self.user32.keybd_event(vk, 0, 0, 0)
+            self.user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        self.zoom_level = level
+        log.info("zoom %s: Cuewand's count %d; PowerPoint's own zoom figure %s%% -> %s%%",
+                 action, level, before, self._zoom_pct(view))
+        return "done"
+
     # ---- laser: PowerPoint's own laser dot, steered by moving the cursor ----
 
     def _window_slide_rect(self, hwnd: int):
@@ -2025,7 +2165,16 @@ class WindowsBackend:
             show[2].LaserPointerEnabled = bool(on)
 
     def _laser_watchdog(self):
-        """Switch the laser off if the phone went quiet while it was on."""
+        """Switch the laser off, and let go of a zoomed slide, if the phone went
+        quiet while it was on."""
+        with self.pan_lock:
+            if self.pan_down and time.monotonic() - self.pan_time > 2.5:
+                try:
+                    self.user32.mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                except Exception as e:
+                    self._note("letting go of the zoomed slide failed", e)
+                self.pan_down = False
+                log.info("zoom: the phone went quiet while moving the slide; let go")
         with self.laser_lock:
             stale = self.laser_want and time.monotonic() - self.laser_time > 2.5
             if stale:
@@ -2442,6 +2591,8 @@ class Context:
         was_live, now_live = old.get("show") in live, new.get("show") in live
         was, now = old.get("show") == "running", new.get("show") == "running"
         mono = time.monotonic()
+        if (new.get("slide"), new.get("show")) != (old.get("slide"), old.get("show")):
+            self.backend.zoom_level = 0     # a new slide comes up at its normal size
         if now_live and not was_live:
             self.show_from = new.get("slide")
             if self.ended_at and mono - self.ended_at < RESUME_WITHIN and not t.running:
@@ -2450,26 +2601,11 @@ class Context:
                 t.start()
                 self.ended_at = 0.0
                 log.info("timer resumed: the slide show is back")
+            elif t.starts == "show":
+                self._auto_start(new, "with the slide show")
         advance = was and now and (new["slide"] != old["slide"] or new["click"] > old["click"])
-        if advance and t.auto and not t.running and not self.pace.rehearsing:
-            if not t.started():
-                # the first advance, from the phone, a clicker or the keyboard
-                self.pace.account(self._showing(new))
-                t.start()
-                log.info("timer started by the first advance")
-            elif self.ended_at:
-                # The clock stopped because the last slide show ended, and this is
-                # a new one. From the first slide it is a new run: a fresh clock.
-                # From anywhere else the talk goes on: the clock does too.
-                first = (getattr(self.backend, "visible", None) or [1])[0]
-                fresh = self.show_from == first
-                if fresh:
-                    self._reset_timer()
-                self.pace.account(self._showing(new))
-                t.start()
-                self.ended_at = 0.0
-                log.info("timer %s by the first advance of a new slide show",
-                         "started afresh" if fresh else "resumed")
+        if advance and t.starts == "next":
+            self._auto_start(new, "by the first advance")
         self.pace.account(self._showing(new))
         if was_live and not now_live:
             if t.running:
@@ -2479,6 +2615,7 @@ class Context:
         self.dirty = True
 
     def _extra(self, d: dict):
+        d["zoom"] = getattr(self.backend, "zoom_level", 0)
         visible = getattr(self.backend, "visible", None)
         d["timer"]["rehearsing"] = self.pace.rehearsing
         d["pace"] = self.pace.window(d, visible)
@@ -2500,6 +2637,30 @@ class Context:
     def _start_timer(self):
         self.pace.account(self._showing(self.hub.show))
         self.hub.timer.start()
+
+    def _auto_start(self, new: dict, how: str):
+        """The clock starts by itself, by the rule chosen in Setup. A clock the
+        presenter paused is left alone, and a rehearsal keeps its own clock."""
+        t = self.hub.timer
+        if t.running or self.pace.rehearsing:
+            return
+        if not t.started():
+            self.pace.account(self._showing(new))
+            t.start()
+            log.info("timer started %s", how)
+        elif self.ended_at:
+            # The clock stopped because the last slide show ended, and this is
+            # a new one. From the first slide it is a new run: a fresh clock.
+            # From anywhere else the talk goes on: the clock does too.
+            first = (getattr(self.backend, "visible", None) or [1])[0]
+            fresh = self.show_from == first
+            if fresh:
+                self._reset_timer()
+            self.pace.account(self._showing(new))
+            t.start()
+            self.ended_at = 0.0
+            log.info("timer %s %s of a new slide show",
+                     "started afresh" if fresh else "resumed", how)
 
     def _reset_timer(self):
         self.hub.timer.reset()
@@ -2563,7 +2724,7 @@ class Context:
         if name == "next" and self.hub.show.get("show") != "running":
             with self.hub.cond:     # arrow-key mode: there is no slide change to watch for
                 t = self.hub.timer
-                if t.auto and not t.started() and self.hub.show.get("show") == "none":
+                if t.starts != "off" and not t.started() and self.hub.show.get("show") == "none":
                     self._start_timer()
                     self._bump()
         try:
@@ -2599,6 +2760,21 @@ class Context:
             entry = self.presses.get(pid)
             if entry is not None:
                 entry["result"] = result
+
+    def do_zoom(self, action: str, who: str) -> str:
+        try:
+            result = self.backend.zoom(action)
+        except PressPending:
+            result = "pending"
+        except TimeoutError:
+            result = "busy"
+        except Exception as e:
+            result = "busy" if com_hresult(e) in COM_BUSY else "failed"
+            log.info("zoom %s failed: %s: %s", action, type(e).__name__, e)
+        log.info("zoom %s from %s: %s", action, who, result)
+        with self.hub.cond:
+            self._bump()
+        return result
 
     def may_press(self, cid) -> bool:
         return self.holder is None or str(cid or "")[:16] == self.holder
@@ -2695,6 +2871,8 @@ class Context:
         action = body.get("action")
         if action not in (None, "start", "pause", "reset"):
             raise BadRequest("unknown timer action")
+        if "starts" in body and body["starts"] not in CLOCK_STARTS:
+            raise BadRequest("the clock starts with the show, with the first Next, or not at all")
         try:
             dur = None if "dur" not in body else max(30, min(int(body["dur"]), 12 * 3600))
             marks = None
@@ -2722,8 +2900,14 @@ class Context:
                 t.dur = dur
             if marks is not None:
                 t.marks = marks
-            if "auto" in body:
-                t.auto = bool(body["auto"])
+            if "starts" in body:
+                t.starts = body["starts"]
+                if t.starts == "off":           # no clock: no time anywhere
+                    self._reset_timer()
+                elif (t.starts == "show" and self.hub.show.get("show") == "running"
+                      and not t.started() and not self.pace.rehearsing):
+                    self._start_timer()         # chosen while the show runs: from now
+                    log.info("timer started: 'with the slide show' chosen during the show")
             self._bump()
         self.save_session()
 
@@ -3095,6 +3279,30 @@ def make_handler(ctx: Context):
                 ctx.backend.laser(min(1.0, max(0.0, x)), min(1.0, max(0.0, y)),
                                   bool(body.get("on")))
                 return self._json({"ok": True})
+            if p == "/api/zoom":
+                if not ctx.may_press(body.get("cid")):
+                    return self._json({"ok": False, "why": "not-yours"})
+                action = body.get("action")
+                if action not in ZOOM_ACTIONS:
+                    raise BadRequest("zoom in, out or fit")
+                result = ctx.do_zoom(action, self._who())
+                snap = ctx.hub.snapshot()
+                snap["zoomed"] = result
+                return self._json(snap)
+            if p == "/api/pan":
+                if not ctx.may_press(body.get("cid")):
+                    return self._json({"ok": False, "why": "not-yours"})
+                phase = body.get("phase")
+                if phase not in PAN_PHASES:
+                    raise BadRequest("down, move or up")
+                try:
+                    x, y = float(body.get("x", 0.5)), float(body.get("y", 0.5))
+                except (TypeError, ValueError):
+                    x = y = 0.5
+                if not (math.isfinite(x) and math.isfinite(y)):
+                    x = y = 0.5
+                result = ctx.backend.pan(phase, min(1.0, max(0.0, x)), min(1.0, max(0.0, y)))
+                return self._json({"ok": result == "done", "why": result})
             if p == "/api/timer":
                 ctx.do_timer(body)
                 return self._json(ctx.hub.snapshot())
