@@ -1,0 +1,1 @@
+comtypes 1.4.17 from PyPI (https://pypi.org/project/comtypes/1.4.17/), MIT licence; the test folder is left out.

@@ -194,16 +194,14 @@ class App(Strict):
     @property
     def ActiveWindow(s): return EditWin(s.Presentations(1).Slides(3))
 APP = None
-class Unk:
-    def QueryInterface(s, iid): return APP
-def get_active(iid):
-    if APP is None: raise ComError(-2147221021)
-    return Unk()
-sys.modules["pythoncom"] = types.SimpleNamespace(CoInitialize=lambda: None, GetActiveObject=get_active, IID_IDispatch="IDispatch")
-sys.modules["pywintypes"] = types.SimpleNamespace(IID=lambda s: s)
-w32 = types.ModuleType("win32com"); cl = types.ModuleType("win32com.client"); dy = types.ModuleType("win32com.client.dynamic")
-dy.Dispatch = lambda o: o; cl.dynamic = dy; w32.client = cl
-sys.modules.update({"win32com": w32, "win32com.client": cl, "win32com.client.dynamic": dy})
+ASKED = []      # how Cuewand asked comtypes for PowerPoint
+def get_active(progid, interface=None, dynamic=False):
+    ASKED.append((progid, interface, dynamic))
+    if APP is None: raise ComError(-2147221021)   # MK_E_UNAVAILABLE: PowerPoint not running
+    return APP
+ct = types.ModuleType("comtypes"); ctc = types.ModuleType("comtypes.client")
+ct.CoInitialize = lambda: None; ct.__version__ = "stand-in"; ctc.GetActiveObject = get_active; ct.client = ctc
+sys.modules.update({"comtypes": ct, "comtypes.client": ctc})
 
 import cuewand, logging
 LOG = os.path.join(os.environ["CUEWAND_DATA"], "wintest.log")
@@ -243,7 +241,9 @@ slides[4].NotesPage = TextBoxNotes("typed in a text box")
 slides[1].SlideShowTransition.AdvanceOnTime = -1; slides[1].SlideShowTransition.AdvanceTime = 6.23
 slides[3].fail = 1      # its first picture fails
 APP = App(); deck = Pres("Talk.pptx", slides); APP.Presentations.items.append(deck); FRONT["editor"] = 0xBEEF
-s = settle(1.2); check("deck open, no show -> idle", s["show"] == "idle" and s["deck"] == "Talk.pptx" and s["total"] == 5 and s["link"] == "ok")
+s = settle(1.2)
+check("PowerPoint is found through comtypes, late-bound with its type information", ASKED and ASKED[-1] == ("PowerPoint.Application", None, True), ASKED[-1:])
+check("deck open, no show -> idle", s["show"] == "idle" and s["deck"] == "Talk.pptx" and s["total"] == 5 and s["link"] == "ok")
 check("a picture that fails is not counted ready, and the pairing page keeps waiting", s["pics"] == [4, 5, 0] and "Preparing slide pictures: 4 of 5" in be.describe(), (s["pics"], be.describe()))
 s = settle(1.6)
 check("the failed picture is tried again and made", s["pics"] == [5, 5, 0] and sorted(EXPORTS) == [(1, False), (2, False), (3, False), (4, False), (4, False), (5, False)] and slides[0].exports == [("JPG", 960, 540)], (s["pics"], EXPORTS))
@@ -479,9 +479,9 @@ check("self-test catches a show that moves twice for one press", (not good) and 
 beL.close()
 
 check("log: connection, deck, pictures, slow export", logged("Connected to PowerPoint 16.0") and logged("deck: Talk.pptx, 5 slides") and logged("slide pictures: 5 of 5 ready") and logged("slide pictures paused for this slide show"))
-for m in ("pythoncom", "pywintypes", "win32com", "win32com.client", "win32com.client.dynamic"): sys.modules[m] = None   # as on a Python without pywin32
+for m in ("comtypes", "comtypes.client"): sys.modules[m] = None   # as on a computer where comtypes cannot load
 hub2 = cuewand.Hub(); be2 = cuewand.WindowsBackend(hub2); be2.start(); time.sleep(0.7); s2 = hub2.snapshot()
-check("without pywin32: snapshot says link off, arrow keys still work", s2["link"] == "off" and s2["mode"] == "keys" and "No PowerPoint connection" in be2.describe(), be2.describe()[:60])
+check("without comtypes: snapshot says link off, arrow keys still work", s2["link"] == "off" and s2["mode"] == "keys" and "No PowerPoint connection" in be2.describe(), be2.describe()[:60])
 n = len(calls["keys"]); be2.command("next", {}); check("arrow key sent in that state", len(calls["keys"]) == n + 2)
 print(f"\n{ok} passed, {bad} failed")
 sys.exit(1 if bad else 0)

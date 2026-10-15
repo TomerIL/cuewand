@@ -48,6 +48,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 APP = "Cuewand"
 VERSION = "2.4"
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The two small libraries Cuewand uses travel with it: segno (draws the pairing
+# code) and comtypes (talks to PowerPoint). Nothing is installed.
+VENDOR = os.path.join(HERE, "_vendor")
+if VENDOR not in sys.path:
+    sys.path.insert(0, VENDOR)
 IS_WIN = sys.platform == "win32"
 BOOT = secrets.token_hex(4)     # changes every time Cuewand starts
 # The internet-link program: one known release, checked after download.
@@ -810,6 +815,13 @@ MSO_PLACEHOLDER, PP_PLACEHOLDER_BODY = 14, 2
 PP_BODY_LIKE = {6, 7}             # vertical body, object: where notes can also sit
 # "busy, ask again" answers from PowerPoint: keep the last state, don't drop it
 COM_BUSY = {-2147418111, -2147417846}  # RPC_E_CALL_REJECTED, RPC_E_SERVERCALL_RETRYLATER
+
+
+def com_hresult(e):
+    """The COM error code of an exception: comtypes puts it on COMError.hresult,
+    and some failures arrive as OSError with the code in winerror."""
+    h = getattr(e, "hresult", None)
+    return getattr(e, "winerror", None) if h is None else h
 KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP = 1, 2
 VK = {"next": 0x27, "prev": 0x25, "black": 0x42, "first": 0x24, "last": 0x23,
       "end": 0x1B}
@@ -917,7 +929,7 @@ class WindowsBackend:
         if not self.ready:
             return "Looking for PowerPoint"
         if not self.com_ok:
-            return ("No PowerPoint connection on this computer (" + (self.com_error or "pywin32 missing")
+            return ("No PowerPoint connection on this computer (" + (self.com_error or "comtypes missing")
                     + "). Next and Back only press the arrow keys: no notes, pictures "
                     "or pace. Close Cuewand and start it again.")
         s = self.hub.snapshot()
@@ -1001,14 +1013,12 @@ class WindowsBackend:
 
     def _run(self):
         try:
-            import pythoncom
-            import pywintypes
-            import win32com.client.dynamic
-            pythoncom.CoInitialize()
-            self._pythoncom, self._pywintypes = pythoncom, pywintypes
-            self._dispatch = win32com.client.dynamic.Dispatch
+            import comtypes
+            import comtypes.client
+            comtypes.CoInitialize()     # this thread is the only one that talks to PowerPoint
+            self._get_active = comtypes.client.GetActiveObject
             self.com_ok = True
-        except Exception as e:  # pywin32 not installed, or COM unavailable
+        except Exception as e:  # comtypes cannot load, or COM unavailable
             self.com_error = f"{type(e).__name__}: {e}"
             log.warning("No PowerPoint connection: %s", self.com_error)
         self.ready = True
@@ -1080,10 +1090,9 @@ class WindowsBackend:
             if now < self.next_try:
                 return None
             try:
-                unk = self._pythoncom.GetActiveObject(
-                    self._pywintypes.IID("PowerPoint.Application"))
-                self.app = self._dispatch(
-                    unk.QueryInterface(self._pythoncom.IID_IDispatch))
+                # dynamic: late-bound calls guided by PowerPoint's own type
+                # information, so methods and properties are told apart
+                self.app = self._get_active("PowerPoint.Application", dynamic=True)
                 self.blocked, self.blocked_since = False, 0.0
                 if not self.announced:
                     self.announced = True
@@ -1214,7 +1223,7 @@ class WindowsBackend:
         except _KeepLast:
             return
         except Exception as e:
-            if getattr(e, "hresult", None) in COM_BUSY:
+            if com_hresult(e) in COM_BUSY:
                 return  # PowerPoint is busy (a dialog is open): keep last state
             self._note("lost PowerPoint", e)
             self._drop_app()
@@ -1274,7 +1283,7 @@ class WindowsBackend:
                     self.show_fail = 0
                     return snap
                 except Exception as e:
-                    if getattr(e, "hresult", None) in COM_BUSY:
+                    if com_hresult(e) in COM_BUSY:
                         raise
                     if fresh or self.cv is None:
                         self.show_fail += 1
@@ -1568,7 +1577,7 @@ class WindowsBackend:
                 except Exception as e:
                     # PowerPoint says "busy, ask again": ask again for a second and a half
                     tries += 1
-                    if getattr(e, "hresult", None) not in COM_BUSY or tries >= 10:
+                    if com_hresult(e) not in COM_BUSY or tries >= 10:
                         raise
                     time.sleep(0.15)
             if tries:
@@ -1591,7 +1600,7 @@ class WindowsBackend:
                     return None
                 return self._position(view)
             except Exception as e:
-                if getattr(e, "hresult", None) not in COM_BUSY:
+                if com_hresult(e) not in COM_BUSY:
                     return None
                 time.sleep(0.15)
         return None
@@ -1758,7 +1767,7 @@ class WindowsBackend:
                 sent = True
                 self._send(view, name)
             except Exception as e:
-                if getattr(e, "hresult", None) in COM_BUSY:
+                if com_hresult(e) in COM_BUSY:
                     raise           # PowerPoint turned it down: nothing moved, ask again
                 self._note(f"{name}: PowerPoint answered with an error", e)
                 self.cv = None      # the remembered show is gone: take the long way
@@ -1778,7 +1787,7 @@ class WindowsBackend:
         try:
             show = self._show()
         except Exception as e:
-            if getattr(e, "hresult", None) in COM_BUSY:
+            if com_hresult(e) in COM_BUSY:
                 raise           # "busy, ask again": asked again, never answered with keys
             self._note("no slide show", e)
         if show is None:
@@ -2533,7 +2542,7 @@ class Context:
 
         def finish(result, err):
             if err is not None:
-                res = "busy" if getattr(err, "hresult", None) in COM_BUSY else "failed"
+                res = "busy" if com_hresult(err) in COM_BUSY else "failed"
             else:
                 res = result or "done"
             late = False
@@ -2574,7 +2583,7 @@ class Context:
                 entry["done"].set()
         except Exception as e:
             # PowerPoint took the press and answered with an error
-            result = "busy" if getattr(e, "hresult", None) in COM_BUSY else "failed"
+            result = "busy" if com_hresult(e) in COM_BUSY else "failed"
             log.info("press %s failed: %s: %s", name, type(e).__name__, e)
         s = self.hub.show
         where = (f'slide {s["slide"]} step {s["click"]}/{s["clicks"]}'
@@ -2955,7 +2964,7 @@ def make_handler(ctx: Context):
                 except ConnectionError:
                     pass
             except Exception as e:
-                busy = getattr(e, "hresult", None) in COM_BUSY
+                busy = com_hresult(e) in COM_BUSY
                 log.info("%s failed: %s: %s", path, type(e).__name__, e)
                 try:    # the phone gets a plain reason, the log gets the detail
                     self._json({"error": "PowerPoint is busy" if busy else "internal error"},
@@ -3183,36 +3192,8 @@ def already_running(port: int) -> bool:
 
 
 # --------------------------------------------------------------------------
-# First run: the PowerPoint connection needs the pywin32 package in *this* Python
+# The PowerPoint connection: comtypes, which travels with Cuewand in _vendor
 # --------------------------------------------------------------------------
-
-def _add_pywin32_paths():
-    """Do by hand what pywin32's .pth file does, for the case where it was
-    installed a moment ago or the .pth file was not processed."""
-    import site
-    roots = []
-    for get in (getattr(site, "getsitepackages", None), getattr(site, "getusersitepackages", None)):
-        try:
-            got = get() if get else []
-            roots += [got] if isinstance(got, str) else list(got)
-        except Exception:
-            pass
-    roots += [p for p in sys.path if p.lower().rstrip("\\/").endswith("site-packages")]
-    for root in dict.fromkeys(roots):
-        if not os.path.isdir(os.path.join(root, "win32")):
-            continue
-        for sub in ("", "win32", os.path.join("win32", "lib"), "Pythonwin"):
-            d = os.path.join(root, sub) if sub else root
-            if os.path.isdir(d) and d not in sys.path:
-                sys.path.append(d)
-        dlls = os.path.join(root, "pywin32_system32")
-        if os.path.isdir(dlls):
-            try:
-                os.add_dll_directory(dlls)
-            except Exception:
-                pass
-            os.environ["PATH"] = dlls + os.pathsep + os.environ.get("PATH", "")
-
 
 def _try_import(names) -> str:
     importlib.invalidate_caches()
@@ -3224,38 +3205,15 @@ def _try_import(names) -> str:
         return f"{type(e).__name__}: {e}"
 
 
-LINK_MODULES = ("pythoncom", "pywintypes", "win32com.client.dynamic")
+LINK_MODULES = ("comtypes", "comtypes.client")
 
 
-def ensure_powerpoint_link(pip=None) -> str:
+def ensure_powerpoint_link() -> str:
     """Returns "" when this Python can talk to PowerPoint, otherwise why not.
-    Installs the one thing that cannot travel with Cuewand: pywin32."""
-    why = _try_import(LINK_MODULES)
-    if why:
-        _add_pywin32_paths()
-        why = _try_import(LINK_MODULES)
-    if not why:
-        return ""
-    print("\n  First run with this Python: installing pywin32, the piece that talks to PowerPoint.")
-    print("  This needs the internet once and takes about half a minute.")
-    log.info("pywin32 missing (%s); installing with pip into %s", why, sys.executable)
-    cmd = [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
-           "pywin32"]
-    try:
-        rc = (pip or subprocess.call)(cmd)
-    except Exception as e:
-        rc = f"{type(e).__name__}: {e}"
-    if rc != 0:
-        log.warning("pip failed: %s", rc)
-        return ("pywin32 could not be installed. In a Command Prompt, run:  "
-                f'"{sys.executable}" -m pip install pywin32')
-    _add_pywin32_paths()
-    why = _try_import(LINK_MODULES)
-    if why:
-        log.info("pywin32 installed but not loadable yet (%s)", why)
-        return "restart"
-    log.info("pywin32 installed and loaded")
-    return ""
+    comtypes is plain Python on top of Python's own ctypes, so there is nothing
+    to install and no program file that is not signed by the Python Software
+    Foundation (Windows Smart App Control blocks unsigned ones)."""
+    return _try_import(LINK_MODULES)
 
 
 # --------------------------------------------------------------------------
@@ -3679,19 +3637,8 @@ def main():
     link_why = ""
     if IS_WIN and not args.demo:
         link_why = ensure_powerpoint_link()
-        if link_why == "restart":
-            if not os.environ.get("CUEWAND_RELAUNCHED"):
-                logging.shutdown()   # start once more so the new package is picked up
-                release_lock()       # the new start takes it
-                sys.exit(subprocess.call([sys.executable] + sys.argv,
-                                         env=dict(os.environ, CUEWAND_RELAUNCHED="1")))
-            link_why = "pywin32 is installed but this Python cannot load it"
-        try:
-            from importlib import metadata
-            log.info("PowerPoint connection: %s (pywin32 %s)", link_why or "ready",
-                     metadata.version("pywin32"))
-        except Exception:
-            log.info("PowerPoint connection: %s", link_why or "ready")
+        version = getattr(sys.modules.get("comtypes"), "__version__", "?")
+        log.info("PowerPoint connection: %s (comtypes %s)", link_why or "ready", version)
 
     hub = Hub()
     demo = args.demo or not IS_WIN

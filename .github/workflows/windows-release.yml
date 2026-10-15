@@ -1,19 +1,31 @@
 name: Windows release
 
-# Builds Cuewand-for-Windows.zip: the app with its own Python and pywin32 inside,
-# so that nothing has to be installed. Checks that it starts and answers on
-# Windows, then attaches it to the release. Runs when a version tag (v2.3, ...)
-# is pushed, or by hand from the Actions tab: with a version, it publishes that
-# release (making the tag); without one, it only keeps the zip as an artifact.
+# Builds Cuewand-for-Windows.zip: the app with its own Python inside, so that
+# nothing has to be installed. Windows Smart App Control blocks .bat files from
+# the internet and unsigned programs, so the zip holds no .bat file and no
+# unsigned program file: "Start Cuewand.exe" and its two siblings are copies of
+# Python's own python.exe, signed by the Python Software Foundation, which start
+# Cuewand through app\sitecustomize.py; PowerPoint is reached through comtypes,
+# plain Python in app\_vendor. The build checks every signature, then that it
+# starts and answers on Windows, then attaches the zip to the release. Runs when
+# a version tag (v2.5, ...) is pushed, or by hand from the Actions tab: with a
+# version, it publishes that release (making the tag); without one, it only
+# keeps the zip as an artifact. "prerelease" publishes it without making it the
+# latest release, so the download links keep pointing at the one before.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish, for example v2.3 (empty: only build and check)"
+        description: "Version to publish, for example v2.5 (empty: only build and check)"
         required: false
         default: ""
+      prerelease:
+        description: "Publish as a pre-release (the latest release stays as it is)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -34,37 +46,65 @@ jobs:
           $ErrorActionPreference = "Stop"
           $ver = (python -c "import platform; print(platform.python_version())").Trim()
           $short = (python -c "import sys; print('python%d%d' % sys.version_info[:2])").Trim()
-          $dest = "build\Cuewand"
-          New-Item -ItemType Directory -Force $dest | Out-Null
-          Copy-Item cuewand.py, remote.html, host.html, README.txt, DESIGN.txt, LICENSE, *.bat $dest
-          Copy-Item -Recurse logo, _vendor $dest
+          $dest = "build\Cuewand"; $app = "$dest\app"; $py = "$app\python"
+          New-Item -ItemType Directory -Force $py | Out-Null
+          # what the person sees: three programs, the manual and the licence
+          Copy-Item README.txt, LICENSE $dest
+          Copy-Item cuewand.py, remote.html, host.html, DESIGN.txt, windows\sitecustomize.py $app
+          Copy-Item -Recurse logo, _vendor $app
           Invoke-WebRequest "https://www.python.org/ftp/python/$ver/python-$ver-embed-amd64.zip" -OutFile "$env:RUNNER_TEMP\py.zip"
-          Expand-Archive "$env:RUNNER_TEMP\py.zip" "$dest\python"
-          python -m pip install --disable-pip-version-check --no-compile --target "$dest\python\Lib\site-packages" pywin32
-          # never used by Cuewand: the Pythonwin editor, demos and tests
-          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue "$dest\python\Lib\site-packages\pythonwin"
-          Get-ChildItem "$dest\python\Lib\site-packages" -Recurse -Directory |
-            Where-Object { $_.Name -in @("Demos", "demos", "test", "tests") } |
-            Sort-Object { $_.FullName.Length } -Descending |
-            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          # the embedded Python finds its packages and runs their .pth files
-          Set-Content -Encoding ascii "$dest\python\$short._pth" "$short.zip`r`n.`r`nLib\site-packages`r`n..`r`nimport site`r`n"
+          $emb = "$env:RUNNER_TEMP\emb"
+          Expand-Archive "$env:RUNNER_TEMP\py.zip" $emb
+          foreach ($name in @("Start Cuewand", "Test Cuewand", "Get the internet link ready")) {
+            Copy-Item "$emb\python.exe" "$dest\$name.exe"
+          }
+          # the programs load these from their own folder
+          Move-Item "$emb\$short.dll", "$emb\python3.dll", "$emb\vcruntime140.dll", "$emb\vcruntime140_1.dll" $dest
+          Remove-Item "$emb\python.exe", "$emb\pythonw.exe", "$emb\$short._pth"
+          Move-Item "$emb\*" $py
+          # where Python finds its library, its modules and Cuewand (and so app\sitecustomize.py)
+          Set-Content -Encoding ascii "$dest\$short._pth" "app\python\$short.zip`r`napp\python`r`napp`r`nimport site`r`n"
           Write-Host "Python $ver, $short"
+          Get-ChildItem $dest | Format-Table Name, Length
           "{0:N1} MB" -f ((Get-ChildItem -Recurse $dest | Measure-Object Length -Sum).Sum / 1MB)
+
+      - name: Every program file is signed (Smart App Control blocks unsigned ones)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $files = Get-ChildItem -Recurse build\Cuewand -Include *.exe, *.dll, *.pyd
+          $bad = @()
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            $who = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "-" }
+            "{0,-8} {1,-60} {2}" -f $sig.Status, $f.FullName.Substring((Resolve-Path build\Cuewand).Path.Length + 1), $who
+            if ($sig.Status -ne "Valid") { $bad += $f.Name }
+          }
+          if ($bad) { throw "not signed: $($bad -join ', ')" }
+          foreach ($name in @("Start Cuewand", "Test Cuewand", "Get the internet link ready")) {
+            $s = (Get-AuthenticodeSignature "build\Cuewand\$name.exe").SignerCertificate.Subject
+            if ($s -notmatch "Python Software Foundation") { throw "$name.exe is signed by $s" }
+          }
+          $scripts = Get-ChildItem -Recurse build\Cuewand -Include *.bat, *.cmd, *.ps1, *.vbs, *.js, *.lnk
+          if ($scripts) { throw "Smart App Control blocks these from the internet: $($scripts.Name -join ', ')" }
+          Write-Host "$($files.Count) program files, every one signed; no script files."
 
       - name: Check that it runs on Windows
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $py = (Resolve-Path "build\Cuewand\python\python.exe").Path
-          # the PowerPoint connection loads from the bundled Python, with nothing installed
-          & $py -c "import sys; sys.path.insert(0, r'build\Cuewand'); import cuewand; why = cuewand.ensure_powerpoint_link(pip=lambda cmd: 1); print('PowerPoint connection:', why or 'ready'); sys.exit(1 if why else 0)"
+          $top = (Resolve-Path "build\Cuewand").Path
+          $exe = "$top\Start Cuewand.exe"
+          # the PowerPoint connection loads from the bundled Python, and comtypes really
+          # drives a COM object late-bound (PowerPoint itself is not on this computer)
+          $probe = "import sys, os; sys.path.insert(0, r'$top\app'); import cuewand; why = cuewand.ensure_powerpoint_link(); print('PowerPoint connection:', why or 'ready'); import comtypes, comtypes.client; print('comtypes from', os.path.dirname(comtypes.__file__)); d = comtypes.client.CreateObject('Scripting.Dictionary', dynamic=True); d.Add('slide', 7); print('late-bound call and property:', d.Item('slide'), d.Count); sys.exit(1 if why or d.Item('slide') != 7 or d.Count != 1 or '_vendor' not in comtypes.__file__ else 0)"
+          & $exe -c $probe
           if ($LASTEXITCODE -ne 0) { throw "the PowerPoint connection does not load" }
           # start it with the demo deck, ask it what a phone and the pairing page ask, stop it
           $data = Join-Path $env:RUNNER_TEMP "cuewand-data"
           New-Item -ItemType Directory -Force $data | Out-Null
           $env:CUEWAND_DATA = $data
-          $p = Start-Process -FilePath $py -ArgumentList "cuewand.py", "--demo", "--no-browser", "--port", "8765" -WorkingDirectory "build\Cuewand" -PassThru -NoNewWindow
+          $p = Start-Process -FilePath $exe -ArgumentList "app\cuewand.py", "--demo", "--no-browser", "--port", "8765" -WorkingDirectory $top -PassThru -NoNewWindow
           $ok = $false
           for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
             Start-Sleep -Milliseconds 500
@@ -83,10 +123,46 @@ jobs:
             if ($c -ne 200) { throw "$u answered $c" }
           }
           # a second copy started by mistake does not run beside the first
-          $second = & $py "build\Cuewand\cuewand.py" --demo --no-browser --port 8770 2>&1 | Out-String
+          $second = & $exe "$top\app\cuewand.py" --demo --no-browser --port 8770 2>&1 | Out-String
           if ($second -notmatch "already running") { throw "a second copy started: $second" }
           Stop-Process -Id $p.Id
+          Start-Sleep -Seconds 1
+          Remove-Item Env:\CUEWAND_DATA
           Write-Host "Started, answered, pressed, served its pages, and refused a second copy."
+
+          # a double-click: "Start Cuewand.exe" with nothing after it starts the real
+          # PowerPoint backend (no demo), which finds no PowerPoint here and says so
+          $q = Start-Process -FilePath $exe -WorkingDirectory $top -PassThru -NoNewWindow
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Milliseconds 500
+            try { $ok = (Invoke-RestMethod http://127.0.0.1:8765/api/ping).cuewand } catch { }
+          }
+          if (-not $ok) { throw "a double-click on Start Cuewand.exe did not start Cuewand" }
+          if (-not (Test-Path "$top\cuewand_session.json")) { throw "the session is not kept beside the programs" }
+          $s = Get-Content "$top\cuewand_session.json" | ConvertFrom-Json
+          for ($i = 0; $i -lt 20; $i++) {
+            $info = Invoke-RestMethod "http://127.0.0.1:8765/api/host/info?h=$($s.host_key)"
+            if ($info.status -notmatch "^Looking for") { break }
+            Start-Sleep -Milliseconds 500
+          }
+          Write-Host "PowerPoint row: $($info.status)"
+          if ($info.link -ne "ok" -or $info.status -notmatch "finds it by itself") { throw "the PowerPoint connection is not ready: $($info.status)" }
+          Get-Process | Where-Object { $_.Path -like "$top\*" } | Stop-Process -Force
+          Start-Sleep -Seconds 1
+
+          # "Test Cuewand.exe" runs the self-test; with no deck it says so, and waits for Enter
+          $out = Join-Path $env:RUNNER_TEMP "selftest.txt"; $none = Join-Path $env:RUNNER_TEMP "empty.txt"
+          Set-Content $none ""
+          $t = Start-Process -FilePath "$top\Test Cuewand.exe" -WorkingDirectory $top -RedirectStandardInput $none -RedirectStandardOutput $out -PassThru -Wait -NoNewWindow
+          $text = Get-Content $out -Raw
+          Write-Host $text
+          if ($text -notmatch "No presentation found" -or $text -notmatch "Press Enter") { throw "Test Cuewand.exe did not run the self-test" }
+
+          # leave nothing of these runs in the download
+          Remove-Item -Force -ErrorAction SilentlyContinue "$top\cuewand*.json", "$top\cuewand*.log", "$top\cuewand.lock", "$top\cuewand_selftest.*"
+          Get-ChildItem $top -Directory -Filter "cuewand_pics_*" | Remove-Item -Recurse -Force
+          Write-Host "A double-click on each program starts what it says."
 
       - name: Run the automated checks on Windows (the two browser files need Playwright and are skipped)
         continue-on-error: true
@@ -97,6 +173,8 @@ jobs:
         run: |
           # the check above leaves compiled files behind; they do not belong in the download
           Get-ChildItem build\Cuewand -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force
+          $left = Get-ChildItem build\Cuewand -Recurse -Include "cuewand_session.json", "cuewand*.log", "cuewand.lock", "cuewand_selftest.*"
+          if ($left) { throw "left over from the checks: $($left.Name -join ', ')" }
           Compress-Archive -Path build\Cuewand -DestinationPath Cuewand-for-Windows.zip
 
       - name: Publish the release
@@ -105,7 +183,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.version || github.ref_name }}
-        run: gh release create "$env:TAG" Cuewand-for-Windows.zip --target "${{ github.sha }}" --title "Cuewand $env:TAG" --notes-file .github/release-notes.md
+          PRE: ${{ inputs.prerelease && '--prerelease' || '' }}
+        run: |
+          $extra = @(); if ($env:PRE) { $extra += $env:PRE; $extra += "--latest=false" }
+          gh release create "$env:TAG" Cuewand-for-Windows.zip --target "${{ github.sha }}" --title "Cuewand $env:TAG" --notes-file .github/release-notes.md @extra
 
       - name: Keep the zip (runs started by hand without a version)
         if: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.version == '' }}

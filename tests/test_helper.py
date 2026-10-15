@@ -1,5 +1,5 @@
 """Pace and rehearsal, what survives a restart, the installer, the internet link, the pairing number."""
-import hashlib, importlib, io, json, os, signal, subprocess, sys, tempfile, threading, time, types, urllib.request, urllib.error
+import hashlib, importlib, importlib.util, io, json, os, signal, subprocess, sys, tempfile, threading, time, types, urllib.request, urllib.error
 from common import B, DATA, PORT, ROOT, server, kill
 ok = bad = 0
 
@@ -126,40 +126,37 @@ real_import = importlib.import_module
 
 def world(have):
     def imp(name):
-        if name in ("pythoncom", "pywintypes", "win32com.client.dynamic"):
-            if name.split(".")[0] in have:
+        if name in ("comtypes", "comtypes.client"):
+            if have:
                 return types.ModuleType(name)
-            raise ModuleNotFoundError(f"No module named '{name.split('.')[0]}'")
+            raise OSError("[WinError 193] not a valid Win32 application")
         return real_import(name)
     importlib.import_module = imp
 
 
-calls = []
-
-
-def pip_ok(installs):
-    def pip(c):
-        calls.append(c); installs(); return 0
-    return pip
-
-
-have = {"pythoncom", "pywintypes", "win32com"}; world(have); calls.clear()
-check("pywin32 present -> ready, pip not run", cuewand.ensure_powerpoint_link(pip=pip_ok(lambda: None)) == "" and not calls)
-have = set(); world(have); calls.clear()
-r = cuewand.ensure_powerpoint_link(pip=pip_ok(lambda: have.update({"pythoncom", "pywintypes", "win32com"})))
-check("pywin32 missing -> installed with this Python's pip, and nothing else is installed", r == "" and len(calls) == 1 and calls[0][:4] == [sys.executable, "-m", "pip", "install"] and calls[0][-1] == "pywin32" and "segno" not in calls[0], calls)
-have = set(); world(have); calls.clear()
-check("installed but not loadable yet -> restart once", cuewand.ensure_powerpoint_link(pip=pip_ok(lambda: None)) == "restart")
-r = cuewand.ensure_powerpoint_link(pip=lambda c: 1)
-check("pip fails (no internet) -> clear instruction with the exact command", "could not be installed" in r and sys.executable in r and "pip install pywin32" in r, r)
-
-
-def boom(c):
-    raise FileNotFoundError("pip")
-
-
-check("pip cannot run -> same instruction, no crash", "could not be installed" in cuewand.ensure_powerpoint_link(pip=boom))
+world(True)
+check("comtypes loads -> PowerPoint connection ready, and nothing is installed", cuewand.ensure_powerpoint_link() == "")
+world(False)
+r = cuewand.ensure_powerpoint_link()
+check("comtypes cannot load -> the reason is given, for the window and the log", "WinError 193" in r, r)
 importlib.import_module = real_import
+check("the installer for pywin32 is gone: nothing in Cuewand calls pip", "pip" not in open(os.path.join(ROOT, "cuewand.py"), encoding="utf-8").read().replace("pipe", ""))
+spec = importlib.util.find_spec("comtypes")
+check("comtypes is the copy that travels with Cuewand, in _vendor", spec is not None and os.path.join("_vendor", "comtypes") in (spec.origin or ""), spec and spec.origin)
+lic = os.path.join(ROOT, "_vendor", "comtypes", "LICENSE.txt")
+check("and its licence travels with it", os.path.isfile(lic) and "Permission is hereby granted" in open(lic, encoding="utf-8").read())
+binaries = [f for d, _, fs in os.walk(os.path.join(ROOT, "_vendor")) for f in fs if f.lower().endswith((".dll", ".pyd", ".exe"))]
+check("nothing in _vendor is a program file (Smart App Control blocks unsigned ones)", not binaries, binaries)
+
+
+class Busy(Exception):
+    pass
+
+
+e1 = Busy(); e1.hresult = -2147418111
+e2 = Busy(); e2.winerror = -2147417846
+check("busy is recognised whether comtypes gives the code as hresult or as winerror",
+      cuewand.com_hresult(e1) in cuewand.COM_BUSY and cuewand.com_hresult(e2) in cuewand.COM_BUSY and cuewand.com_hresult(Busy()) is None)
 
 # pairing codes are drawn by the copy of the library that travels with Cuewand
 p = subprocess.run([sys.executable, "-S", "-c", "import sys; sys.path.insert(0, sys.argv[1]); import cuewand; s = cuewand.qr_svg('http://192.168.1.20:9999/#k=abc'); print(s[:4], len(s), 'segno' in sys.modules and sys.modules['segno'].__file__)", ROOT],
