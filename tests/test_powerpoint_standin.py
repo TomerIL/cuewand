@@ -42,7 +42,7 @@ class U32(Strict):
         s.keybd_event = lambda vk, sc, fl, ex: calls["keys"].append((vk, fl))
         s.GetForegroundWindow = FnBox(lambda: 0xF00D)
         s.GetClassNameW = FnBox(_classname)
-        s.FindWindowW = FnBox(lambda cls, title: FRONT["editor"] if cls == "PPTFrameClass" else 0)
+        s.FindWindowW = FnBox(lambda cls, title: FRONT["editor"] if cls == "PPTFrameClass" else (0x50A1E if cls == "screenClass" else 0))
         s.mouse_event = lambda fl, x, y, d, ex: calls["mouse"].append(fl)
         s.GetWindowThreadProcessId = FnBox(lambda hwnd, ref: (setattr(ref._obj, "value", PIDS.get(hwnd, 0)), 1)[1])
         s.SetForegroundWindow = FnBox(lambda hwnd: PIDS.__setitem__(0xF00D, PIDS[0x50A1E]) if GRANT["front"] else None)
@@ -354,7 +354,15 @@ GRANT["front"] = True; k0 = len(calls["keys"]); r = be.zoom("in")
 check("another program in front: PowerPoint brings the show forward, and the zoom goes to it", r == "done" and be.zoom_level == 1 and zoom_keys(k0) == [(0x6B, 0), (0x6B, 2)] and PIDS[0xF00D] == PIDS[0x50A1E], (r, calls["keys"][k0:]))
 FRONT["class"] = "PPTFrameClass"; k0 = len(calls["keys"]); r = be.zoom("in")
 check("PowerPoint's own editor in front: no zoom key (a plus would land in the deck)", r == "not-front" and zoom_keys(k0) == [], (r, calls["keys"][k0:]))
-FRONT["class"] = "screenClass"; be.zoom("fit"); FRONT["class"] = "PPTFrameClass"
+FRONT["class"] = "screenClass"; be.zoom("fit")
+# on a real PowerPoint, with comtypes, the show window's handle did not come through: Windows finds the window instead
+Win.HWND = property(lambda s: (_ for _ in ()).throw(ComError(-2147352573)))
+for w in APP.SlideShowWindows.items: w.__dict__.pop("HWND", None)
+PIDS[0xF00D] = 777; GRANT["front"] = True; k0 = len(calls["keys"]); r = be.zoom("in")
+check("PowerPoint gives no handle for the show window: Windows finds it by its kind, brings it forward, and the zoom goes there", r == "done" and zoom_keys(k0) == [(0x6B, 0), (0x6B, 2)] and logged("handle could not be read"), (r, calls["keys"][k0:]))
+be.zoom("fit"); del Win.HWND
+for w in APP.SlideShowWindows.items: w.HWND = 0x50A1E
+FRONT["class"] = "PPTFrameClass"
 be.command("goto", {"n": 99}); s = hub.snapshot(); check("goto out of range ignored", s["slide"] == 2)
 
 # during a show the notes come from memory: reading a notes page then kept a real PowerPoint busy for 4 s

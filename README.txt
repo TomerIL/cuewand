@@ -461,7 +461,7 @@ ever counted twice, and both safeguards held. It also showed two things
   quick press until the slide's transition is over, sends it once more if
   it was swallowed, and says "Nothing moved" if it still was.
 Everything else since 1.6 has been run against a stand-in for PowerPoint
-and in phone- and tablet-sized desktop browsers: 666 automated checks, in
+and in phone- and tablet-sized desktop browsers: 667 automated checks, in
 the tests folder, plus an automated accessibility audit (axe-core) of every
 screen. A stand-in written by the author cannot disagree with the author
 about how PowerPoint behaves. "Test Cuewand.exe" is the real test: run it on

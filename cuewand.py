@@ -862,6 +862,7 @@ PIC_RETRY_GAP = 2.0       # s before the second attempt; twice that before the t
 SLOW_EXPORT = 0.6         # s. A picture slower than this, mid-show, stops further ones
 CALM_AFTER_PRESS = 1.5    # s without a press before a picture may be made mid-show
 PPT_EDITOR_CLASS = "PPTFrameClass"   # PowerPoint's editing window (not the slide show)
+PPT_SHOW_CLASS = "screenClass"       # PowerPoint's slide show window
 # Zoom on the big screen (a trial): PowerPoint's own slide-show zoom, reached with the
 # + and - keys of the number pad. Minus at normal size would open PowerPoint's view of
 # all slides in front of the room, so Cuewand only ever sends as many minuses as pluses.
@@ -2084,11 +2085,9 @@ class WindowsBackend:
         window of PowerPoint's own, such as Presenter View), never the editor.
         A slide show started from the phone often opens behind the window that
         was in front (Cuewand's own, say), so it is brought forward first."""
-        try:
-            hwnd = int(win.HWND)
-        except Exception:
-            hwnd = 0
+        hwnd = self._show_hwnd(win)
         if not hwnd:
+            log.info("%sthe slide show window was not found", why and why + ": ")
             return False
 
         def ours():
@@ -2117,6 +2116,20 @@ class WindowsBackend:
         log.info("%sthe slide show %s to the front", why and why + ": ",
                  "was brought" if got else "could not be brought")
         return got
+
+    def _show_hwnd(self, win) -> int:
+        """The slide show window: PowerPoint names it, or Windows finds it by its kind."""
+        try:
+            h = int(win.HWND or 0)
+            if h:
+                return h
+        except Exception as e:
+            self._note("the slide show window's handle could not be read from PowerPoint", e)
+        try:
+            return int(self.user32.FindWindowW(PPT_SHOW_CLASS, None) or 0)
+        except Exception as e:
+            self._note("the slide show window could not be found", e)
+            return 0
 
     @staticmethod
     def _zoom_pct(view):
@@ -3842,6 +3855,8 @@ def main():
     logging.basicConfig(
         filename=log_path, filemode="w",
         level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
+    # comtypes reports every COM object it lets go of: thousands of lines a minute
+    logging.getLogger("comtypes").setLevel(logging.WARNING)
     if not IS_WIN:
         try:
             os.chmod(log_path, 0o600)   # phone names and addresses: this user only
