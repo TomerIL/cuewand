@@ -26,6 +26,11 @@ on:
         type: boolean
         required: false
         default: false
+      replace:
+        description: "Replace that version's release and tag with one built from this commit (for fixes to the manual)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -184,7 +189,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.version || github.ref_name }}
           PRE: ${{ inputs.prerelease && '--prerelease' || '' }}
+          REPLACE: ${{ inputs.replace && 'yes' || '' }}
         run: |
+          if ($env:REPLACE) { gh release delete "$env:TAG" --cleanup-tag --yes; if ($LASTEXITCODE -ne 0) { throw "could not remove the old $env:TAG" } }
           $extra = @(); if ($env:PRE) { $extra += $env:PRE; $extra += "--latest=false" }
           gh release create "$env:TAG" Cuewand-for-Windows.zip --target "${{ github.sha }}" --title "Cuewand $env:TAG" --notes-file .github/release-notes.md @extra
 

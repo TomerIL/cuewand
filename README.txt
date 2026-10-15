@@ -15,8 +15,8 @@ It is not for a lectern computer you meet five minutes before you speak,
 and there is no Mac version.
 
 Keep your clicker in your pocket. The two work side by side: a press on the
-clicker shows up on the phone, and the clock starts with the first advance
-whichever of them made it.
+clicker shows up on the phone, and it starts the clock just as the phone
+does.
 
 What has and has not been tried is listed at the end. Read it before you
 rely on Cuewand in front of a room.
@@ -39,14 +39,15 @@ Start
    There is no file to choose in Cuewand: it finds the deck open in
    PowerPoint by itself, and the page says "Found your deck". With several
    decks open, it uses the one in front; click another deck's window to
-   switch. Give Cuewand a moment: it makes a
-   picture of every slide now, while no slide show runs, so that it never
-   has to ask PowerPoint for one during your talk. The page on the computer and
-   the phone both show the progress.
+   switch. Give Cuewand a moment: it makes a picture of every slide now,
+   while no slide show runs, so that it never has to ask PowerPoint for
+   one during your talk. The page on the computer and the phone both show
+   the progress.
 5. On the phone: Setup asks when the clock starts, the talk length and the
-   alerts (everything else is under "More options"), then Continue. Cuewand checks the
-   connection, PowerPoint, your notes, the screen and vibration, and gives
-   one answer. The button under that answer starts the slide show.
+   alerts (everything else is under "More options"), then Continue.
+   Cuewand checks the connection, PowerPoint, your notes, the screen and
+   vibration, and gives one answer. The button under that answer starts
+   the slide show.
 
 Two taps from Setup to your first slide. Keep the Cuewand window open while
 you present; close it to stop.
@@ -107,8 +108,9 @@ The clock         The Next button is the clock. It shows the time left, its
                   The start screen says which rule is set. The clock stops
                   when the slide show ends. Start the show again from the
                   first slide and the clock starts from zero; start it
-                  again from any other slide and it carries on. A clock you paused yourself is
-                  left alone. Paused shows as a framed word. The time
+                  again from any other slide and it carries on. A clock
+                  you paused yourself is left alone. Paused shows as a
+                  framed word. The time
                   never leaves the button: while it shows "Slide 8" or
                   "Sending", the time moves to its bottom line. The digits
                   are dark where the level covers them and light above it,
@@ -292,9 +294,9 @@ Rehearsal         Rehearse now (whenever it would move the show or restart
                   the clock it asks twice, and afterwards it offers Undo,
                   which returns to the slide you were on); Where the time
                   went, by section; forget a rehearsal.
-This phone        Text size; Setup (the clock, talk length, alerts, your name, what
-                  this phone shows, left hand, zoom); Run the ready check
-                  again.
+This phone        Text size; Setup (the clock, talk length, alerts, your
+                  name, what this phone shows, left hand, zoom); Run the
+                  ready check again.
 Ending            In red: End the slide show; Start over, which ends the
                   slide show, clears the clock and goes back to Setup.
                   Both ask twice.
@@ -460,28 +462,30 @@ ever counted twice, and both safeguards held. It also showed two things
   it. 2.2 tells the phone as soon as PowerPoint has taken a press, holds a
   quick press until the slide's transition is over, sends it once more if
   it was swallowed, and says "Nothing moved" if it still was.
+Version 2.6, on a real Android phone (Chrome) and PowerPoint 16: the
+connection through comtypes, the slide pictures and notes, and Start, Next
+and Back from the phone, each landing in 0.01 to 0.03 s. A first try of the
+zoom never reached the show; 2.6 as released finds the show window itself.
 Everything else since 1.6 has been run against a stand-in for PowerPoint
-and in phone- and tablet-sized desktop browsers: 667 automated checks, in
+and in phone- and tablet-sized desktop browsers: 683 automated checks, in
 the tests folder, plus an automated accessibility audit (axe-core) of every
 screen. A stand-in written by the author cannot disagree with the author
 about how PowerPoint behaves. "Test Cuewand.exe" is the real test: run it on
 your deck.
 
 Not tried at all:
-- Zoom on the big screen (2.6, a trial). Microsoft's list of slide-show
-  shortcuts does not mention + and - for zoom, so try on your laptop,
-  before a talk: that + and - zoom the show; where the zoom is centred;
-  that holding and dragging the slide picture moves the zoomed slide and
-  never moves the show on to the next slide; what Next does while zoomed
-  in; whether a new slide really comes up at normal size. cuewand.log
-  records each zoom with PowerPoint's own zoom figure.
-- 2.5 on real PowerPoint. It talks to PowerPoint through comtypes instead
-  of pywin32, so that every program file Windows runs is signed. The
-  Windows build checks that comtypes drives a real COM object the same
-  way, but PowerPoint itself is not on that machine: run "Test Cuewand.exe"
-  on your deck before you rely on 2.5.
-- Windows Smart App Control with the 2.5 download (2.4 was blocked by it)
-- any iPhone, and any real Android phone since 1.6
+- Zoom on the big screen (2.6, a trial), as released. Microsoft's list of
+  slide-show shortcuts does not mention + and - for zoom, so try on your
+  laptop, before a talk: that + and - zoom the show; where the zoom is
+  centred; that holding and dragging the slide picture moves the zoomed
+  slide and never moves the show on to the next slide; what Next does
+  while zoomed in; whether a new slide really comes up at normal size.
+  cuewand.log records each zoom with PowerPoint's own zoom figure.
+- "Test Cuewand.exe" (the full self-test) since 2.1, and so since the
+  change to comtypes in 2.5: run it on your deck before you rely on it.
+- Windows Smart App Control with the 2.5 or 2.6 download (2.4 was blocked
+  by it)
+- any iPhone
 - whether the silent video really keeps a given phone awake on the Same
   Wi-Fi code (the check on the phone says which method is in use; watch it
   through your first slide)

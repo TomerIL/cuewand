@@ -1,0 +1,123 @@
+<script>window.__PHONE = /*__PHONE__*/null;</script>
+<script>
+/* The demo deck's slides, drawn in the page. Shared by the phones and the big screen. */
+const MOCK_DECK = [
+  // title, steps, hidden, notes, text on the slide (one item per step after the first)
+  ['Ten minutes, one idea', 0, false, 'Say the one idea in a single sentence before anything else.\n\nIf people remember only that sentence, the talk worked.', ['A talk about giving talks']],
+  ['Why most talks run over', 3, false, 'Three reasons, one per click.\n[click]\nToo many slides. One point per slide, and cut the rest.\n[click]\nNo rehearsal with a clock. You cannot feel ten minutes.\n[click]\nThe introduction eats the results. Start with what you found.', ['', 'Too many slides', 'No rehearsal with a clock', 'The introduction eats the results']],
+  ['One slide, one point', 0, false, 'If a slide needs the word ‘and’ to describe it, split it.', ['One point per slide']],
+  ['Show the result first', 2, false, 'Result, then method. The audience listens to the method differently once they know where it lands.', ['', 'Result first', 'Then the method']],
+  ['Numbers people can repeat', 0, false, 'Round hard. ‘About a third’ survives the coffee break. ‘34.7%’ does not.', ['About a third, not 34.7%']],
+  ['The slide you skip', 0, true, 'Hidden slide. Keep it for questions.', ['Backup: the numbers behind the third']],
+  ['The last minute', 0, false, 'When the phone buzzes at one minute, go straight to the closing slide.\n\nRepeat the one idea. Stop.', ['Repeat the one idea']],
+  ['Questions', 0, false, '', ['Thank you']],
+];
+const MOCK_SECTIONS = [['Opening', 1, 2], ['The idea', 3, 5], ['Closing', 6, 8]];
+const MOCK_COLORS = ['#243B55', '#3B2F4A', '#1F4D46', '#4A3A22', '#2D3F5E', '#3A3A3A', '#4B2A33', '#22424F'];
+const mockSlideCache = {};
+function mockSlide(n, click) {           // click: how many steps are shown; undefined = all (the phone's picture)
+  const d = MOCK_DECK[n - 1]; if (!d) return '';
+  const steps = d[1], shown = click === undefined ? steps : Math.max(0, Math.min(click, steps));
+  const key = n + '/' + shown;
+  if (mockSlideCache[key]) return mockSlideCache[key];
+  const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const font = 'font-family="Segoe UI, Helvetica, Arial, sans-serif"';
+  const lines = []; let cur = '';
+  for (const w of d[0].split(' ')) { if (cur.length + w.length + 1 > 20 && cur) { lines.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); }
+  lines.push(cur);
+  let y = steps ? 220 : 330 - (lines.length - 1) * 50;
+  let out = lines.map((ln, i) => `<text x="110" y="${y + i * 108}" font-size="92" font-weight="700" fill="#fff" ${font}>${esc(ln)}</text>`).join('');
+  y += (lines.length - 1) * 108 + 100;
+  if (steps) {
+    for (let i = 1; i <= shown; i++) out += `<circle cx="128" cy="${y + (i - 1) * 84 - 18}" r="10" fill="#F2B544"/><text x="160" y="${y + (i - 1) * 84}" font-size="54" fill="#EDEFF3" ${font}>${esc(d[4][i])}</text>`;
+  } else out += `<text x="110" y="${y + 20}" font-size="48" fill="#ffffffcc" ${font}>${esc(d[4][0])}</text>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720"><rect width="1280" height="720" fill="${MOCK_COLORS[(n - 1) % 8]}"/>` +
+    `<rect x="110" y="86" width="120" height="10" fill="#F2B544"/>${out}<text x="1170" y="670" font-size="40" fill="#ffffff99" text-anchor="end" ${font}>${n}</text></svg>`;
+  return (mockSlideCache[key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+}
+/* Mockup only. Runs inside each phone before the page itself: the phone's storage lives in
+   memory, and every request the page makes goes to the stand-in server in the page around it. */
+(() => {
+'use strict';
+const P = window.__PHONE;
+const post = m => { try { parent.postMessage(Object.assign({cuewand: P.id}, m), '*'); } catch (e) {} };
+function mem(init, kind) {
+  const m = new Map(Object.entries(init || {}));
+  return {
+    getItem: k => m.has(String(k)) ? m.get(String(k)) : null,
+    setItem: (k, v) => { m.set(String(k), String(v)); post({type: 'store', kind, k: String(k), v: String(v)}); },
+    removeItem: k => { m.delete(String(k)); post({type: 'store', kind, k: String(k), v: null}); },
+    clear: () => m.clear(), key: i => [...m.keys()][i] ?? null, get length() { return m.size; },
+  };
+}
+window.__ls = mem(P.local, 'local');
+window.__ss = mem(P.session, 'session');
+window.__mockPhone = true;
+// Less motion follows the phone's own setting; the mockup plays that setting for each phone.
+if (P.reduce !== undefined) {
+  const real = window.matchMedia.bind(window);
+  window.matchMedia = q => /prefers-reduced-motion/.test(q)
+    ? {matches: !!P.reduce, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent() { return false; }}
+    : real(q);
+}
+window.__mockSlide = n => mockSlide(n);
+
+let seq = 0;
+const pending = new Map();
+window.fetch = (url, opt) => new Promise((resolve, reject) => {
+  opt = opt || {};
+  const id = ++seq, aborted = () => new DOMException('The request was aborted.', 'AbortError');
+  if (opt.signal) {
+    if (opt.signal.aborted) return reject(aborted());
+    opt.signal.addEventListener('abort', () => { if (pending.delete(id)) { post({type: 'abort', id}); reject(aborted()); } });
+  }
+  pending.set(id, {resolve, reject});
+  post({type: 'fetch', id, url: String(url), method: opt.method || 'GET', body: typeof opt.body === 'string' ? opt.body : null});
+});
+try { navigator.sendBeacon = url => { post({type: 'fetch', id: 0, url: String(url), method: 'POST', body: '{}'}); return true; }; } catch (e) {}
+
+async function run(steps) {
+  const q = s => document.querySelector(s), app = () => document.getElementById('app');
+  for (const [op, a, b] of steps) {
+    if (op === 'wait') await new Promise(r => setTimeout(r, a));
+    else if (op === 'click') { const el = q(a); if (el) el.click(); }
+    else if (op === 'type') { const el = q(a); if (el) { el.focus(); el.value = b; el.dispatchEvent(new Event('input', {bubbles: true})); } }
+    else if (op === 'blur') { if (document.activeElement) document.activeElement.blur(); }
+    else if (op === 'closeSheets') { if (q('.sheet.on')) document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); }
+    else if (op === 'slides') { if (!app().classList.contains('q')) q('#b-slides').click(); }
+    else if (op === 'talk') { if (app().classList.contains('q')) q('#b-slides').click(); }
+    else if (op === 'clearFind') { const el = q('#q-q'); if (el && (el.value || q('#ques').classList.contains('finding'))) { const x = q('#q-x'); if (x && !x.hidden) x.click(); el.blur(); document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true})); } }
+  }
+}
+addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.to !== P.id) return;
+  if (d.type === 'reply') {
+    const p = pending.get(d.id); if (!p) return;
+    pending.delete(d.id);
+    if (d.error) p.reject(new TypeError('Failed to fetch'));
+    else p.resolve({ok: d.status >= 200 && d.status < 300, status: d.status, json: async () => d.body});
+  } else if (d.type === 'do') run(d.steps);
+});
+
+/* What a screen reader would say, and how fast the button answers: told to the page around */
+let t0 = 0, lat = null, last = '';
+document.addEventListener('pointerup', e => { if (e.target.closest && e.target.closest('#pads')) t0 = performance.now(); }, true);
+function report() {
+  const g = id => document.getElementById(id);
+  if (!g('surface')) return;
+  const v = {type: 'view', next: g('surface').getAttribute('aria-label') || '', where: g('where').getAttribute('aria-label') || '',
+             say: g('say').textContent, flash: g('flash').textContent, alt: g('curimg').alt || '',
+             back: g('back').getAttribute('aria-label') || '', lat, motion: document.documentElement.classList.contains('still')};
+  const sig = JSON.stringify(v);
+  if (sig !== last) { last = sig; post(v); }
+}
+addEventListener('DOMContentLoaded', () => {
+  const pads = document.getElementById('pads');
+  new MutationObserver(() => {
+    if (t0 && /\bfx-/.test(pads.className)) { lat = Math.round(performance.now() - t0); t0 = 0; report(); }
+  }).observe(pads, {attributes: true, attributeFilter: ['class']});
+  setInterval(report, 300);
+});
+})();
+</script>
